@@ -63,7 +63,7 @@ function extractFields(schemaType: SchemaType, parentPath: string, schema: Schem
   return fields
 }
 
-function resolveFieldType(field: ObjectField, schema: Schema): string {
+function resolveFieldType(field: ObjectField, _schema: Schema): string {
   const type = field.type
   if (typeof type === 'string') {
     return type
