@@ -1,5 +1,5 @@
-import {CheckmarkCircleIcon, ErrorOutlineIcon, SyncIcon} from '@sanity/icons'
-import {Badge, Box, Card, Flex, Stack, Text} from '@sanity/ui'
+import {CheckmarkCircleIcon, DocumentIcon, ErrorOutlineIcon, SyncIcon} from '@sanity/icons'
+import {Badge, Box, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
 
 export interface ImportResult {
   row: number
@@ -27,53 +27,83 @@ export function ImportProgress({
 
   return (
     <Stack space={4}>
+      {/* Header */}
+      <Box>
+        <Text weight="semibold" size={2}>
+          {isComplete ? 'Import Complete' : 'Importing Documents'}
+        </Text>
+        <Text muted size={1} style={{marginTop: '8px'}}>
+          {isComplete
+            ? 'Your documents have been processed'
+            : 'Please wait while documents are being created...'}
+        </Text>
+      </Box>
+
+      {/* Status Banner */}
       <Card
         padding={4}
-        radius={2}
+        radius={3}
         tone={isComplete ? (errorCount > 0 ? 'caution' : 'positive') : 'primary'}
       >
-        <Stack space={3}>
-          <Flex align="center" gap={2}>
+        <Flex align="center" gap={3}>
+          <Box
+            style={{
+              width: '56px',
+              height: '56px',
+              borderRadius: '50%',
+              backgroundColor: isComplete
+                ? errorCount > 0
+                  ? 'var(--card-badge-caution-bg-color)'
+                  : 'var(--card-badge-positive-bg-color)'
+                : 'var(--card-badge-primary-bg-color)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
             {isComplete ? (
               errorCount > 0 ? (
-                <ErrorOutlineIcon />
+                <ErrorOutlineIcon style={{fontSize: '1.75em'}} />
               ) : (
-                <CheckmarkCircleIcon />
+                <CheckmarkCircleIcon style={{fontSize: '1.75em'}} />
               )
             ) : (
-              <SyncIcon style={{animation: 'spin 1s linear infinite'}} />
+              <SyncIcon style={{fontSize: '1.75em', animation: 'spin 1s linear infinite'}} />
             )}
-            <Text weight="semibold">
+          </Box>
+          <Stack space={2}>
+            <Text weight="semibold" size={2}>
               {isComplete
                 ? errorCount > 0
-                  ? 'Import Completed with Errors'
-                  : 'Import Completed Successfully'
-                : 'Importing Documents...'}
+                  ? `Completed with ${errorCount} error${errorCount !== 1 ? 's' : ''}`
+                  : 'All documents imported!'
+                : `Importing... ${progressPercent}%`}
             </Text>
-          </Flex>
-          {!isComplete && (
-            <Text muted size={1}>
-              Please wait while documents are being created...
+            <Text size={1}>
+              {successCount} of {totalRows} document{totalRows !== 1 ? 's' : ''} created
+              successfully
             </Text>
-          )}
-        </Stack>
+          </Stack>
+        </Flex>
       </Card>
 
       {/* Progress Bar */}
-      <Card padding={3} radius={2} shadow={1}>
+      <Card padding={4} radius={2} shadow={1}>
         <Stack space={3}>
-          <Flex justify="space-between">
-            <Text size={1}>Progress</Text>
+          <Flex justify="space-between" align="center">
             <Text size={1} weight="semibold">
-              {progressPercent}%
+              Progress
             </Text>
+            <Badge tone={isComplete ? 'positive' : 'primary'} fontSize={1}>
+              {progressPercent}%
+            </Badge>
           </Flex>
           <Box
             style={{
               width: '100%',
-              height: '8px',
-              backgroundColor: 'var(--card-border-color)',
-              borderRadius: '4px',
+              height: '12px',
+              backgroundColor: 'var(--card-bg2-color)',
+              borderRadius: '6px',
               overflow: 'hidden',
             }}
           >
@@ -81,87 +111,158 @@ export function ImportProgress({
               style={{
                 width: `${progressPercent}%`,
                 height: '100%',
-                backgroundColor: 'var(--card-badge-positive-dot-color)',
+                backgroundColor: isComplete
+                  ? 'var(--card-badge-positive-dot-color)'
+                  : 'var(--card-badge-primary-dot-color)',
                 transition: 'width 0.3s ease',
+                borderRadius: '6px',
               }}
             />
           </Box>
-          <Flex justify="space-between">
-            <Text size={1} muted>
-              {processedRows} of {totalRows} documents
-            </Text>
-            <Flex gap={2}>
-              <Flex align="center" gap={1}>
-                <Badge tone="positive" fontSize={0}>
-                  {successCount}
-                </Badge>
-                <Text size={0} muted>
-                  success
-                </Text>
-              </Flex>
-              {errorCount > 0 && (
-                <Flex align="center" gap={1}>
-                  <Badge tone="critical" fontSize={0}>
-                    {errorCount}
-                  </Badge>
-                  <Text size={0} muted>
-                    failed
-                  </Text>
-                </Flex>
-              )}
-            </Flex>
-          </Flex>
+          <Text size={1} muted style={{textAlign: 'center'}}>
+            {processedRows} of {totalRows} documents processed
+          </Text>
         </Stack>
       </Card>
+
+      {/* Stats Grid */}
+      <Grid columns={[2, 2, 3]} gap={3}>
+        <Card padding={4} radius={2} shadow={1}>
+          <Stack space={2}>
+            <Text size={0} muted weight="semibold">
+              TOTAL
+            </Text>
+            <Flex align="center" gap={2}>
+              <DocumentIcon style={{opacity: 0.5}} />
+              <Text size={4} weight="bold">
+                {totalRows}
+              </Text>
+            </Flex>
+          </Stack>
+        </Card>
+        <Card padding={4} radius={2} shadow={1} tone="positive">
+          <Stack space={2}>
+            <Text size={0} muted weight="semibold">
+              SUCCESS
+            </Text>
+            <Flex align="center" gap={2}>
+              <CheckmarkCircleIcon style={{color: 'var(--card-badge-positive-icon-color)'}} />
+              <Text size={4} weight="bold">
+                {successCount}
+              </Text>
+            </Flex>
+          </Stack>
+        </Card>
+        <Card padding={4} radius={2} shadow={1} tone={errorCount > 0 ? 'critical' : 'default'}>
+          <Stack space={2}>
+            <Text size={0} muted weight="semibold">
+              FAILED
+            </Text>
+            <Flex align="center" gap={2}>
+              <ErrorOutlineIcon
+                style={{
+                  color: errorCount > 0 ? 'var(--card-badge-critical-icon-color)' : 'inherit',
+                  opacity: errorCount > 0 ? 1 : 0.5,
+                }}
+              />
+              <Text size={4} weight="bold">
+                {errorCount}
+              </Text>
+            </Flex>
+          </Stack>
+        </Card>
+      </Grid>
 
       {/* Error Details */}
       {errorCount > 0 && (
         <Card padding={4} radius={2} shadow={1}>
           <Stack space={3}>
-            <Text weight="semibold">Failed Imports</Text>
-            <Box style={{maxHeight: '200px', overflowY: 'auto'}}>
-              <Stack space={2}>
+            <Flex align="center" justify="space-between">
+              <Text weight="semibold">Failed Imports</Text>
+              <Badge tone="critical" fontSize={0}>
+                {errorCount} error{errorCount !== 1 ? 's' : ''}
+              </Badge>
+            </Flex>
+            <Box
+              style={{
+                maxHeight: '200px',
+                overflowY: 'auto',
+                borderRadius: '4px',
+                border: '1px solid var(--card-border-color)',
+              }}
+            >
+              <Stack space={0}>
                 {results
                   .filter((r) => !r.success)
                   .slice(0, 20)
                   .map((result, index) => (
-                    <Card key={index} padding={3} radius={2} tone="critical">
+                    <Box
+                      key={index}
+                      padding={3}
+                      style={{
+                        borderBottom:
+                          index <
+                          Math.min(results.filter((r) => !r.success).length, 20) - 1
+                            ? '1px solid var(--card-border-color)'
+                            : 'none',
+                        backgroundColor: 'rgba(var(--card-badge-critical-bg-color-rgb), 0.1)',
+                      }}
+                    >
                       <Flex align="center" gap={3}>
-                        <ErrorOutlineIcon />
-                        <Stack space={1}>
-                          <Text size={1} weight="semibold">
+                        <ErrorOutlineIcon
+                          style={{
+                            flexShrink: 0,
+                            color: 'var(--card-badge-critical-icon-color)',
+                          }}
+                        />
+                        <Stack space={1} style={{flex: 1}}>
+                          <Badge mode="outline" fontSize={0}>
                             Row {result.row + 1}
-                          </Text>
+                          </Badge>
                           <Text size={1}>{result.error || 'Unknown error'}</Text>
                         </Stack>
                       </Flex>
-                    </Card>
+                    </Box>
                   ))}
-                {errorCount > 20 && (
-                  <Text size={1} muted style={{textAlign: 'center'}}>
-                    ... and {errorCount - 20} more errors
-                  </Text>
-                )}
               </Stack>
             </Box>
+            {errorCount > 20 && (
+              <Text size={1} muted style={{textAlign: 'center'}}>
+                Showing 20 of {errorCount} errors
+              </Text>
+            )}
           </Stack>
         </Card>
       )}
 
       {/* Success Summary */}
       {isComplete && successCount > 0 && (
-        <Card padding={4} radius={2} tone="positive">
-          <Flex align="center" gap={3}>
-            <CheckmarkCircleIcon />
+        <Card padding={4} radius={2} tone="positive" style={{textAlign: 'center'}}>
+          <Stack space={3}>
+            <Flex justify="center">
+              <Box
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  backgroundColor: 'var(--card-badge-positive-bg-color)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <CheckmarkCircleIcon style={{fontSize: '1.5em'}} />
+              </Box>
+            </Flex>
             <Stack space={1}>
-              <Text weight="semibold">
-                {successCount} document{successCount !== 1 ? 's' : ''} created successfully
+              <Text weight="semibold" size={2}>
+                {successCount} document{successCount !== 1 ? 's' : ''} created
               </Text>
               <Text size={1} muted>
-                You can now view and edit these documents in Sanity Studio.
+                You can now view and edit these documents in Sanity Studio
               </Text>
             </Stack>
-          </Flex>
+          </Stack>
         </Card>
       )}
 
