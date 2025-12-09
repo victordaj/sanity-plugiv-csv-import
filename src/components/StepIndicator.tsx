@@ -1,5 +1,7 @@
 import {CheckmarkCircleIcon} from '@sanity/icons'
 import {Box, Flex, Text} from '@sanity/ui'
+import type {JSX} from 'react'
+import {useCallback} from 'react'
 
 export interface Step {
   id: string
@@ -13,13 +15,28 @@ export interface StepIndicatorProps {
   onStepClick?: (stepId: string) => void
 }
 
+function getCircleBackgroundColor(isCompleted: boolean, isCurrent: boolean): string {
+  if (isCompleted) return 'var(--card-badge-positive-bg-color)'
+  if (isCurrent) return 'var(--card-badge-primary-bg-color)'
+  return 'transparent'
+}
+
 export function StepIndicator({
   steps,
   currentStepId,
   completedStepIds,
   onStepClick,
-}: StepIndicatorProps) {
+}: StepIndicatorProps): JSX.Element {
   const currentIndex = steps.findIndex((s) => s.id === currentStepId)
+
+  const handleStepClick = useCallback(
+    (stepId: string, isClickable: boolean) => {
+      if (isClickable && onStepClick) {
+        onStepClick(stepId)
+      }
+    },
+    [onStepClick],
+  )
 
   return (
     <Box paddingY={4}>
@@ -27,7 +44,7 @@ export function StepIndicator({
         {steps.map((step, index) => {
           const isCompleted = completedStepIds.includes(step.id)
           const isCurrent = step.id === currentStepId
-          const isClickable = isCompleted && onStepClick
+          const isClickable = Boolean(isCompleted && onStepClick)
 
           return (
             <Flex key={step.id} align="center">
@@ -40,7 +57,7 @@ export function StepIndicator({
                   opacity: !isCompleted && !isCurrent ? 0.5 : 1,
                   transition: 'opacity 0.2s ease',
                 }}
-                onClick={() => isClickable && onStepClick(step.id)}
+                onClick={handleStepClick.bind(null, step.id, isClickable)}
               >
                 {/* Circle */}
                 <Flex
@@ -50,11 +67,7 @@ export function StepIndicator({
                     width: 32,
                     height: 32,
                     borderRadius: '50%',
-                    backgroundColor: isCompleted
-                      ? 'var(--card-badge-positive-bg-color)'
-                      : isCurrent
-                        ? 'var(--card-badge-primary-bg-color)'
-                        : 'transparent',
+                    backgroundColor: getCircleBackgroundColor(isCompleted, isCurrent),
                     border:
                       isCompleted || isCurrent ? 'none' : '2px solid var(--card-border-color)',
                     transition: 'all 0.2s ease',
