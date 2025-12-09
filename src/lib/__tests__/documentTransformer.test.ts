@@ -623,6 +623,80 @@ describe('documentTransformer', () => {
       expect(result.success).toBe(true)
     })
 
+    it('should handle object field with subfields properly', () => {
+      // For object field processing, we need the main object field with subfield definitions
+      // and the row values at nested paths
+      const row = {'seo.title': 'Page Title', 'seo.keywords': 'test, keywords'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'seo',
+            path: 'seo',
+            type: 'object',
+            fields: [
+              {
+                name: 'title',
+                type: 'string',
+                title: 'Title',
+                required: false,
+                isArray: false,
+                isReference: false,
+                isImage: false,
+              },
+              {
+                name: 'keywords',
+                type: 'string',
+                title: 'Keywords',
+                required: false,
+                isArray: false,
+                isReference: false,
+                isImage: false,
+              },
+            ],
+          }),
+        ],
+      })
+
+      // We also need to populate with a value at path 'seo' for the object to be processed
+      row['seo'] = 'trigger-object'
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const seo = result.document?.seo as {title: string; keywords: string}
+      expect(seo.title).toBe('Page Title')
+      expect(seo.keywords).toBe('test, keywords')
+    })
+
+    it('should handle object field returning undefined when subfields empty', () => {
+      const row = {'seo.title': '', 'seo.keywords': ''}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'seo',
+            path: 'seo',
+            type: 'object',
+            fields: [
+              {
+                name: 'title',
+                type: 'string',
+                title: 'Title',
+                required: false,
+                isArray: false,
+                isReference: false,
+                isImage: false,
+              },
+            ],
+          }),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.seo).toBeUndefined()
+    })
+
     it('should handle empty array value', () => {
       const row = {tags: ''}
       const options = createOptions({
