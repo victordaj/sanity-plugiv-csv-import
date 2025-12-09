@@ -1,5 +1,6 @@
-import {Box, Button, Card, Flex, Stack, Tab, TabList, TabPanel} from '@sanity/ui'
-import {useCallback, useState} from 'react'
+import {ImageIcon, LinkIcon} from '@sanity/icons'
+import {Box, Button, Card, Flex, Stack, Text} from '@sanity/ui'
+import {useCallback, useMemo, useState} from 'react'
 import {type Schema, useClient} from 'sanity'
 
 import {type ParsedCsvData} from '../lib/csvParser'
@@ -17,8 +18,11 @@ import {DuplicateOptions, type DuplicateStrategy} from './DuplicateOptions'
 import {ImageUploader, type UploadedImage} from './ImageUploader'
 import {ImportProgress, type ImportResult} from './ImportProgress'
 import {ReferenceConfig, type ReferenceMatchConfig} from './ReferenceConfig'
+import {StepIndicator} from './StepIndicator'
+import {TemplateBar} from './TemplateBar'
 import {TypeSelector} from './TypeSelector'
 import {type ValidationIssue, ValidationSummary} from './ValidationSummary'
+import {WelcomeScreen} from './WelcomeScreen'
 
 export interface DocumentType {
   name: string
@@ -30,7 +34,7 @@ export interface WizardProps {
   schema: Schema
 }
 
-type WizardStep = 'select' | 'references' | 'images' | 'upload' | 'validate' | 'import'
+type WizardStep = 'select' | 'configure' | 'upload' | 'validate' | 'import'
 
 export function Wizard({documentTypes, schema}: WizardProps) {
   // Client for Sanity operations
@@ -44,7 +48,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
   // Reference configuration
   const [referenceConfig, setReferenceConfig] = useState<ReferenceMatchConfig[]>([])
 
-  // Image uploads - now stores UploadedImage[] directly
+  // Image uploads
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
 
   // CSV data
@@ -62,6 +66,12 @@ export function Wizard({documentTypes, schema}: WizardProps) {
   const [importProcessed, setImportProcessed] = useState(0)
   const [importComplete, setImportComplete] = useState(false)
 
+  // Get selected type title
+  const selectedTypeTitle = useMemo(() => {
+    const type = documentTypes.find((t) => t.name === selectedType)
+    return type?.title || selectedType
+  }, [documentTypes, selectedType])
+
   // Handle type selection
   const handleTypeSelect = useCallback(
     (typeName: string) => {
@@ -77,35 +87,36 @@ export function Wizard({documentTypes, schema}: WizardProps) {
       setValidationIssues([])
       setImportResults([])
       setImportComplete(false)
-
-      // Determine next step based on schema
-      if (hasReferenceFields(fields)) {
-        setCurrentStep('references')
-      } else if (hasImageFields(fields)) {
-        setCurrentStep('images')
-      } else {
-        setCurrentStep('upload')
-      }
     },
     [schema],
   )
+
+  // Handle continuing from type selection
+  const handleTypeSelectionContinue = useCallback(() => {
+    if (!selectedType) return
+
+    if (hasReferenceFields(schemaFields) || hasImageFields(schemaFields)) {
+      setCurrentStep('configure')
+    } else {
+      setCurrentStep('upload')
+    }
+  }, [selectedType, schemaFields])
 
   // Handle reference configuration
   const handleReferencesConfigured = useCallback(
     (config: ReferenceMatchConfig[]) => {
       setReferenceConfig(config)
-      if (hasImageFields(schemaFields)) {
-        setCurrentStep('images')
-      } else {
-        setCurrentStep('upload')
-      }
     },
-    [schemaFields],
+    [],
   )
 
-  // Handle images uploaded (ImageUploader handles the actual upload)
+  // Handle images uploaded
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
     setUploadedImages(images)
+  }, [])
+
+  // Handle continuing from configure step
+  const handleConfigureContinue = useCallback(() => {
     setCurrentStep('upload')
   }, [])
 
@@ -213,80 +224,78 @@ export function Wizard({documentTypes, schema}: WizardProps) {
     setImportComplete(false)
   }, [])
 
-  // Step helpers
-  const getStepIndex = (step: WizardStep): number => {
-    const steps: WizardStep[] = ['select', 'references', 'images', 'upload', 'validate', 'import']
-    return steps.indexOf(step)
-  }
+  // Determine if we need configure step
+  const needsConfigureStep = hasReferenceFields(schemaFields) || hasImageFields(schemaFields)
 
-  const isStepAccessible = (step: WizardStep): boolean => {
-    const currentIndex = getStepIndex(currentStep)
-    const stepIndex = getStepIndex(step)
-    return stepIndex <= currentIndex
-  }
+  // Build steps array based on schema needs
+  const steps = useMemo(() => {
+    const baseSteps = [{id: 'select', label: 'Select Type'}]
+
+    if (needsConfigureStep) {
+      baseSteps.push({id: 'configure', label: 'Configure'})
+    }
+
+    baseSteps.push(
+      {id: 'upload', label: 'Upload CSV'},
+      {id: 'validate', label: 'Review'},
+      {id: 'import', label: 'Import'},
+    )
+
+    return baseSteps
+  }, [needsConfigureStep])
+
+  // Get completed steps
+  const completedStepIds = useMemo(() => {
+    const completed: string[] = []
+    const stepOrder: WizardStep[] = ['select', 'configure', 'upload', 'validate', 'import']
+    const currentIndex = stepOrder.indexOf(currentStep)
+
+    for (const step of stepOrder) {
+      if (stepOrder.indexOf(step) < currentIndex) {
+        if (step === 'configure' && !needsConfigureStep) continue
+        completed.push(step)
+      }
+    }
+
+    return completed
+  }, [currentStep, needsConfigureStep])
 
   const canProceedFromValidation = validationResult && validationResult.validRowCount > 0
 
+  // Show welcome screen if no type selected
+  if (!selectedType && currentStep === 'select') {
+    return (
+      <Box padding={4}>
+        <WelcomeScreen onGetStarted={() => {}} />
+        <Box marginTop={5}>
+          <TypeSelector
+            documentTypes={documentTypes}
+            selectedType={selectedType}
+            schemaFields={schemaFields}
+            onTypeSelect={handleTypeSelect}
+            schema={schema}
+          />
+        </Box>
+      </Box>
+    )
+  }
+
   return (
-    <Card padding={4} radius={2} shadow={1}>
-      <Stack space={4}>
-        {/* Step Tabs */}
-        <TabList space={2}>
-          <Tab
-            aria-controls="select-panel"
-            id="select-tab"
-            label="1. Select Type"
-            onClick={() => isStepAccessible('select') && setCurrentStep('select')}
-            selected={currentStep === 'select'}
-            disabled={!isStepAccessible('select')}
-          />
-          <Tab
-            aria-controls="references-panel"
-            id="references-tab"
-            label="2. References"
-            onClick={() => isStepAccessible('references') && setCurrentStep('references')}
-            selected={currentStep === 'references'}
-            disabled={!isStepAccessible('references') || !hasReferenceFields(schemaFields)}
-          />
-          <Tab
-            aria-controls="images-panel"
-            id="images-tab"
-            label="3. Images"
-            onClick={() => isStepAccessible('images') && setCurrentStep('images')}
-            selected={currentStep === 'images'}
-            disabled={!isStepAccessible('images') || !hasImageFields(schemaFields)}
-          />
-          <Tab
-            aria-controls="upload-panel"
-            id="upload-tab"
-            label="4. Upload CSV"
-            onClick={() => isStepAccessible('upload') && setCurrentStep('upload')}
-            selected={currentStep === 'upload'}
-            disabled={!isStepAccessible('upload')}
-          />
-          <Tab
-            aria-controls="validate-panel"
-            id="validate-tab"
-            label="5. Validate"
-            onClick={() => isStepAccessible('validate') && setCurrentStep('validate')}
-            selected={currentStep === 'validate'}
-            disabled={!isStepAccessible('validate')}
-          />
-          <Tab
-            aria-controls="import-panel"
-            id="import-tab"
-            label="6. Import"
-            onClick={() => isStepAccessible('import') && setCurrentStep('import')}
-            selected={currentStep === 'import'}
-            disabled={!isStepAccessible('import')}
-          />
-        </TabList>
+    <Box padding={4}>
+      <Stack space={5}>
+        {/* Step Progress Indicator */}
+        <StepIndicator
+          steps={steps}
+          currentStepId={currentStep}
+          completedStepIds={completedStepIds}
+          onStepClick={(stepId) => setCurrentStep(stepId as WizardStep)}
+        />
 
         {/* Step Content */}
-        <Box marginTop={4}>
+        <Card padding={5} radius={3} shadow={1}>
           {/* Step 1: Select Type */}
           {currentStep === 'select' && (
-            <TabPanel aria-labelledby="select-tab" id="select-panel">
+            <Stack space={5}>
               <TypeSelector
                 documentTypes={documentTypes}
                 selectedType={selectedType}
@@ -294,129 +303,149 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                 onTypeSelect={handleTypeSelect}
                 schema={schema}
               />
-            </TabPanel>
-          )}
 
-          {/* Step 2: Configure References */}
-          {currentStep === 'references' && (
-            <TabPanel aria-labelledby="references-tab" id="references-panel">
-              <Stack space={4}>
-                <ReferenceConfig
-                  schemaFields={schemaFields}
-                  schema={schema}
-                  onConfigured={handleReferencesConfigured}
-                />
-                <Flex justify="flex-end" gap={3}>
-                  <Button text="Back" mode="ghost" onClick={() => setCurrentStep('select')} />
+              {selectedType && (
+                <Flex justify="flex-end">
                   <Button
                     text="Continue"
                     tone="primary"
-                    onClick={() => handleReferencesConfigured(referenceConfig)}
+                    onClick={handleTypeSelectionContinue}
+                    disabled={!selectedType}
                   />
                 </Flex>
-              </Stack>
-            </TabPanel>
+              )}
+            </Stack>
           )}
 
-          {/* Step 3: Upload Images */}
-          {currentStep === 'images' && (
-            <TabPanel aria-labelledby="images-tab" id="images-panel">
-              <Stack space={4}>
-                <ImageUploader
-                  schemaFields={schemaFields}
-                  onImagesUploaded={handleImagesUploaded}
-                />
-                <Flex justify="flex-end" gap={3}>
-                  <Button
-                    text="Back"
-                    mode="ghost"
-                    onClick={() =>
-                      hasReferenceFields(schemaFields)
-                        ? setCurrentStep('references')
-                        : setCurrentStep('select')
-                    }
-                  />
-                </Flex>
-              </Stack>
-            </TabPanel>
+          {/* Step 2: Configure (References & Images) */}
+          {currentStep === 'configure' && (
+            <Stack space={5}>
+              <Box>
+                <Text weight="semibold" size={2}>
+                  Configure Import Settings
+                </Text>
+                <Text muted size={1} style={{marginTop: '8px'}}>
+                  Set up how references and images should be matched
+                </Text>
+              </Box>
+
+              {hasReferenceFields(schemaFields) && (
+                <Card padding={4} radius={2} tone="transparent" border>
+                  <Stack space={3}>
+                    <Flex align="center" gap={2}>
+                      <LinkIcon />
+                      <Text weight="semibold">Reference Fields</Text>
+                    </Flex>
+                    <ReferenceConfig
+                      schemaFields={schemaFields}
+                      schema={schema}
+                      onConfigured={handleReferencesConfigured}
+                    />
+                  </Stack>
+                </Card>
+              )}
+
+              {hasImageFields(schemaFields) && (
+                <Card padding={4} radius={2} tone="transparent" border>
+                  <Stack space={3}>
+                    <Flex align="center" gap={2}>
+                      <ImageIcon />
+                      <Text weight="semibold">Image Fields</Text>
+                    </Flex>
+                    <ImageUploader
+                      schemaFields={schemaFields}
+                      onImagesUploaded={handleImagesUploaded}
+                    />
+                  </Stack>
+                </Card>
+              )}
+
+              <Flex justify="space-between" gap={3}>
+                <Button text="Back" mode="ghost" onClick={() => setCurrentStep('select')} />
+                <Button text="Continue to Upload" tone="primary" onClick={handleConfigureContinue} />
+              </Flex>
+            </Stack>
           )}
 
-          {/* Step 4: Upload CSV */}
+          {/* Step 3: Upload CSV */}
           {currentStep === 'upload' && (
-            <TabPanel aria-labelledby="upload-tab" id="upload-panel">
-              <Stack space={4}>
-                <CsvUploader schemaFields={schemaFields} onCsvParsed={handleCsvParsed} />
-                <Flex justify="flex-start">
-                  <Button
-                    text="Back"
-                    mode="ghost"
-                    onClick={() => {
-                      if (hasImageFields(schemaFields)) {
-                        setCurrentStep('images')
-                      } else if (hasReferenceFields(schemaFields)) {
-                        setCurrentStep('references')
-                      } else {
-                        setCurrentStep('select')
-                      }
-                    }}
-                  />
-                </Flex>
-              </Stack>
-            </TabPanel>
+            <Stack space={5}>
+              <CsvUploader schemaFields={schemaFields} onCsvParsed={handleCsvParsed} />
+              <Flex justify="flex-start">
+                <Button
+                  text="Back"
+                  mode="ghost"
+                  onClick={() => {
+                    if (needsConfigureStep) {
+                      setCurrentStep('configure')
+                    } else {
+                      setCurrentStep('select')
+                    }
+                  }}
+                />
+              </Flex>
+            </Stack>
           )}
 
-          {/* Step 5: Validate */}
+          {/* Step 4: Validate */}
           {currentStep === 'validate' && csvData && validationResult && (
-            <TabPanel aria-labelledby="validate-tab" id="validate-panel">
-              <Stack space={4}>
-                <ValidationSummary
-                  totalRows={csvData.rows.length}
-                  validRows={validationResult.validRowCount}
-                  issues={validationIssues}
-                  onContinue={handleStartImport}
-                  onCancel={() => setCurrentStep('upload')}
-                />
+            <Stack space={5}>
+              <ValidationSummary
+                totalRows={csvData.rows.length}
+                validRows={validationResult.validRowCount}
+                issues={validationIssues}
+                onContinue={handleStartImport}
+                onCancel={() => setCurrentStep('upload')}
+              />
 
-                <DuplicateOptions
-                  duplicateCount={duplicateCount}
-                  selectedStrategy={duplicateStrategy}
-                  onStrategyChange={setDuplicateStrategy}
-                />
+              <DuplicateOptions
+                duplicateCount={duplicateCount}
+                selectedStrategy={duplicateStrategy}
+                onStrategyChange={setDuplicateStrategy}
+              />
 
-                <Flex justify="flex-end" gap={3}>
-                  <Button text="Back" mode="ghost" onClick={() => setCurrentStep('upload')} />
-                  <Button
-                    text={`Import ${validationResult.validRowCount} Documents`}
-                    tone="positive"
-                    onClick={handleStartImport}
-                    disabled={!canProceedFromValidation}
-                  />
-                </Flex>
-              </Stack>
-            </TabPanel>
+              <Flex justify="space-between" gap={3}>
+                <Button text="Back" mode="ghost" onClick={() => setCurrentStep('upload')} />
+                <Button
+                  text={`Import ${validationResult.validRowCount} Documents`}
+                  tone="positive"
+                  onClick={handleStartImport}
+                  disabled={!canProceedFromValidation}
+                />
+              </Flex>
+            </Stack>
           )}
 
-          {/* Step 6: Import */}
+          {/* Step 5: Import */}
           {currentStep === 'import' && csvData && (
-            <TabPanel aria-labelledby="import-tab" id="import-panel">
-              <Stack space={4}>
-                <ImportProgress
-                  totalRows={csvData.rows.length}
-                  processedRows={importProcessed}
-                  results={importResults}
-                  isComplete={importComplete}
-                />
+            <Stack space={5}>
+              <ImportProgress
+                totalRows={csvData.rows.length}
+                processedRows={importProcessed}
+                results={importResults}
+                isComplete={importComplete}
+              />
 
-                {importComplete && (
-                  <Flex justify="center">
-                    <Button text="Start New Import" tone="primary" onClick={handleReset} />
-                  </Flex>
-                )}
-              </Stack>
-            </TabPanel>
+              {importComplete && (
+                <Flex justify="center">
+                  <Button text="Start New Import" tone="primary" onClick={handleReset} />
+                </Flex>
+              )}
+            </Stack>
           )}
-        </Box>
+        </Card>
+
+        {/* Template Download Bar - show when type is selected */}
+        {selectedType && currentStep !== 'import' && (
+          <TemplateBar
+            documentType={selectedType}
+            documentTypeTitle={selectedTypeTitle}
+            schemaFields={schemaFields}
+            referenceConfig={referenceConfig}
+            visible={true}
+          />
+        )}
       </Stack>
-    </Card>
+    </Box>
   )
 }
