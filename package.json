@@ -57,6 +57,7 @@
     "@sanity/plugin-kit": "^4.0.20",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/papaparse": "^5.5.1",
     "@types/react": "^18.3.18",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
