@@ -1,26 +1,34 @@
 import {definePlugin} from 'sanity'
 
-interface MyPluginConfig {
-  /* nothing here yet */
-}
+import {CsvImportTool} from './tool/CsvImportTool'
 
 /**
- * Usage in `sanity.config.ts` (or .js)
+ * Sanity CSV Import Plugin
+ *
+ * A Studio Tool for bulk importing CSV data into any Sanity document type
+ * with template generation, reference matching, and image uploads.
+ *
+ * Usage in `sanity.config.ts`:
  *
  * ```ts
  * import {defineConfig} from 'sanity'
- * import {myPlugin} from 'sanity-plugin-csv-import'
+ * import {csvImportTool} from 'sanity-plugin-csv-import'
  *
  * export default defineConfig({
  *   // ...
- *   plugins: [myPlugin()],
+ *   plugins: [csvImportTool()],
  * })
  * ```
  */
-export const myPlugin = definePlugin<MyPluginConfig | void>((config = {}) => {
-  // eslint-disable-next-line no-console
-  console.log('hello from sanity-plugin-csv-import')
+export const csvImportTool = definePlugin(() => {
   return {
     name: 'sanity-plugin-csv-import',
+    tools: [CsvImportTool],
   }
 })
+
+// Export for backwards compatibility
+export {csvImportTool as myPlugin}
+
+// Export types
+export type {CsvImportToolProps} from './tool/CsvImportTool'
