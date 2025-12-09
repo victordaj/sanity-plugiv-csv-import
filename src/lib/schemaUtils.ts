@@ -187,8 +187,17 @@ function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
     const toTypes = (type as {to: unknown[]}).to
     return toTypes
       .map((to) => {
-        if (typeof to === 'object' && to !== null && 'type' in to) {
-          return (to as {type: string}).type
+        // Could be {type: 'author'} or could be full schema object with {name: 'author'}
+        if (typeof to === 'object' && to !== null) {
+          if ('type' in to && typeof (to as {type: unknown}).type === 'string') {
+            return (to as {type: string}).type
+          }
+          if ('name' in to && typeof (to as {name: unknown}).name === 'string') {
+            return (to as {name: string}).name
+          }
+        }
+        if (typeof to === 'string') {
+          return to
         }
         return null
       })
@@ -203,8 +212,14 @@ function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
       if (typeof ofType === 'object' && ofType !== null && 'to' in ofType) {
         const toTypes = (ofType as {to: unknown[]}).to
         for (const to of toTypes) {
-          if (typeof to === 'object' && to !== null && 'type' in to) {
-            targets.push((to as {type: string}).type)
+          if (typeof to === 'object' && to !== null) {
+            if ('type' in to && typeof (to as {type: unknown}).type === 'string') {
+              targets.push((to as {type: string}).type)
+            } else if ('name' in to && typeof (to as {name: unknown}).name === 'string') {
+              targets.push((to as {name: string}).name)
+            }
+          } else if (typeof to === 'string') {
+            targets.push(to)
           }
         }
       }

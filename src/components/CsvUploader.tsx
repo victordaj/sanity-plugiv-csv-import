@@ -1,6 +1,6 @@
 import {CheckmarkCircleIcon, DocumentIcon, UploadIcon} from '@sanity/icons'
 import {Badge, Box, Card, Flex, Stack, Text} from '@sanity/ui'
-import {useCallback, useState} from 'react'
+import {useCallback, useRef, useState} from 'react'
 
 import {type CsvParseError, parseCsvFile, type ParsedCsvData} from '../lib/csvParser'
 import {type SchemaField} from '../lib/schemaUtils'
@@ -15,12 +15,11 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
   const [errors, setErrors] = useState<CsvParseError[]>([])
   const [fileName, setFileName] = useState<string | null>(null)
   const [previewData, setPreviewData] = useState<ParsedCsvData | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleFileSelect = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      if (!file) return
-
+  const processFile = useCallback(
+    async (file: File) => {
       setIsLoading(true)
       setErrors([])
       setFileName(file.name)
@@ -63,12 +62,54 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
         ])
       } finally {
         setIsLoading(false)
-        // Reset input for re-upload
-        event.target.value = ''
       }
     },
     [schemaFields, onCsvParsed],
   )
+
+  const handleFileSelect = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0]
+      if (file) {
+        processFile(file)
+      }
+      // Reset input for re-upload
+      event.target.value = ''
+    },
+    [processFile],
+  )
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsDragging(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragging(false)
+
+      const file = e.dataTransfer.files[0]
+      if (file && (file.name.endsWith('.csv') || file.name.endsWith('.txt'))) {
+        processFile(file)
+      } else if (file) {
+        setErrors([{type: 'FileError', code: 'InvalidType', message: 'Please drop a CSV file'}])
+      }
+    },
+    [processFile],
+  )
+
+  const handleDropZoneClick = () => {
+    fileInputRef.current?.click()
+  }
 
   // Get matched and unmatched columns
   const getColumnStatus = (header: string): 'matched' | 'extra' => {
@@ -91,37 +132,42 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
         </Text>
       </Box>
 
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".csv,.txt"
+        onChange={handleFileSelect}
+        style={{display: 'none'}}
+        disabled={isLoading}
+      />
+
       {/* Drop zone */}
       <Card
         padding={5}
         radius={3}
-        tone={previewData ? 'positive' : 'transparent'}
+        tone={previewData ? 'positive' : isDragging ? 'primary' : 'transparent'}
         style={{
-          border: previewData ? '2px solid var(--card-badge-positive-bg-color)' : '2px dashed var(--card-border-color)',
+          border: previewData
+            ? '2px solid var(--card-badge-positive-bg-color)'
+            : isDragging
+              ? '2px solid var(--card-focus-ring-color)'
+              : '2px dashed var(--card-border-color)',
           textAlign: 'center',
-          position: 'relative',
-          transition: 'all 0.2s ease',
+          cursor: isLoading ? 'wait' : 'pointer',
+          transition: 'all 0.15s ease',
         }}
+        onClick={handleDropZoneClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
-        <input
-          type="file"
-          accept=".csv,.txt"
-          onChange={handleFileSelect}
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            opacity: 0,
-            cursor: 'pointer',
-          }}
-          disabled={isLoading}
-        />
         <Stack space={3}>
           <Flex justify="center">
             {previewData ? (
-              <CheckmarkCircleIcon style={{fontSize: '2.5em', color: 'var(--card-badge-positive-fg-color)'}} />
+              <CheckmarkCircleIcon
+                style={{fontSize: '2.5em', color: 'var(--card-badge-positive-fg-color)'}}
+              />
             ) : (
               <UploadIcon style={{fontSize: '2.5em', opacity: 0.4}} />
             )}
@@ -131,7 +177,9 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
               ? 'Parsing CSV...'
               : previewData
                 ? 'File uploaded successfully'
-                : 'Click or drag CSV file here'}
+                : isDragging
+                  ? 'Drop CSV file here'
+                  : 'Click or drag CSV file here'}
           </Text>
           {fileName && (
             <Flex align="center" justify="center" gap={2}>
@@ -319,7 +367,12 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
 
       {/* Expected columns hint (only shown before upload) */}
       {!previewData && (
-        <Card padding={3} radius={2} tone="transparent" style={{backgroundColor: 'var(--card-bg2-color)'}}>
+        <Card
+          padding={3}
+          radius={2}
+          tone="transparent"
+          style={{backgroundColor: 'var(--card-bg2-color)'}}
+        >
           <Stack space={2}>
             <Text size={0} weight="semibold" muted>
               Expected columns:

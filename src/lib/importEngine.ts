@@ -36,6 +36,31 @@ interface ReferenceCache {
 }
 
 /**
+ * Fields to check for duplicates (in order of priority)
+ */
+const DUPLICATE_CHECK_FIELDS = ['_id', 'slug.current', 'slug', 'email', 'name', 'title', 'sku']
+
+/**
+ * Find a unique field in the document to use for duplicate checking
+ */
+function findUniqueField(document: TransformedDocument): {field: string; value: string} | null {
+  for (const field of DUPLICATE_CHECK_FIELDS) {
+    if (field === 'slug.current' && document.slug && typeof document.slug === 'object') {
+      const slugObj = document.slug as {current?: string}
+      if (slugObj.current) {
+        return {field: 'slug.current', value: slugObj.current}
+      }
+    } else if (field in document && document[field]) {
+      const value = document[field]
+      if (typeof value === 'string') {
+        return {field, value}
+      }
+    }
+  }
+  return null
+}
+
+/**
  * Import transformed documents into Sanity
  */
 export async function importDocuments(
@@ -135,47 +160,57 @@ async function importSingleDocument(
 ): Promise<ImportResult> {
   // Resolve any pending references
   const resolvedDoc = await resolveReferences(document, client, referenceCache)
+  const docType = resolvedDoc._type as string
 
-  // Handle duplicate strategy
+  // Find unique field for duplicate checking
+  const uniqueField = findUniqueField(resolvedDoc)
+
+  // Check for existing document
+  let existingId: string | null = null
+
   if (document._id) {
     // Document has explicit ID
     const existing = await client.getDocument(document._id as string)
-
     if (existing) {
-      switch (duplicateStrategy) {
-        case 'skip':
-          return {
-            row: rowIndex,
-            success: true,
-            documentId: document._id as string,
-            skipped: true,
-          }
-        case 'update':
-          // Update existing document
-          const updated = await client
-            .patch(document._id as string)
-            .set(resolvedDoc)
-            .commit()
-          return {
-            row: rowIndex,
-            success: true,
-            documentId: updated._id,
-          }
-        case 'create':
-          // Create with new ID
-          delete resolvedDoc._id
-          const newDoc = await client.create(resolvedDoc)
-          return {
-            row: rowIndex,
-            success: true,
-            documentId: newDoc._id,
-          }
-      }
+      existingId = document._id as string
+    }
+  } else if (uniqueField && duplicateStrategy !== 'create') {
+    // Query for existing document by unique field
+    const query = `*[_type == $type && ${uniqueField.field} == $value][0]._id`
+    existingId = await client.fetch<string | null>(query, {
+      type: docType,
+      value: uniqueField.value,
+    })
+  }
+
+  // Handle based on duplicate strategy
+  if (existingId) {
+    switch (duplicateStrategy) {
+      case 'skip':
+        return {
+          row: rowIndex,
+          success: true,
+          documentId: existingId,
+          skipped: true,
+        }
+      case 'update':
+        // Update existing document - remove _id and _type for patch
+        const {_id: _updateId, _type: _updateType, ...updateFields} = resolvedDoc
+        const updated = await client.patch(existingId).set(updateFields).commit()
+        return {
+          row: rowIndex,
+          success: true,
+          documentId: updated._id,
+        }
+      case 'create':
+        // Create with new ID (fall through to create)
+        break
     }
   }
 
-  // Create new document
-  const created = await client.create(resolvedDoc)
+  // Create new document - remove _id to let Sanity generate it
+  const {_id: _createId, ...createFields} = resolvedDoc
+  const created = await client.create(createFields)
   return {
     row: rowIndex,
     success: true,

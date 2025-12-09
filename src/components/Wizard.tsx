@@ -22,7 +22,6 @@ import {StepIndicator} from './StepIndicator'
 import {TemplateBar} from './TemplateBar'
 import {TypeSelector} from './TypeSelector'
 import {type ValidationIssue, ValidationSummary} from './ValidationSummary'
-import {WelcomeScreen} from './WelcomeScreen'
 
 export interface DocumentType {
   name: string
@@ -103,12 +102,9 @@ export function Wizard({documentTypes, schema}: WizardProps) {
   }, [selectedType, schemaFields])
 
   // Handle reference configuration
-  const handleReferencesConfigured = useCallback(
-    (config: ReferenceMatchConfig[]) => {
-      setReferenceConfig(config)
-    },
-    [],
-  )
+  const handleReferencesConfigured = useCallback((config: ReferenceMatchConfig[]) => {
+    setReferenceConfig(config)
+  }, [])
 
   // Handle images uploaded
   const handleImagesUploaded = useCallback((images: UploadedImage[]) => {
@@ -262,24 +258,6 @@ export function Wizard({documentTypes, schema}: WizardProps) {
 
   const canProceedFromValidation = validationResult && validationResult.validRowCount > 0
 
-  // Show welcome screen if no type selected
-  if (!selectedType && currentStep === 'select') {
-    return (
-      <Box padding={4}>
-        <WelcomeScreen onGetStarted={() => {}} />
-        <Box marginTop={5}>
-          <TypeSelector
-            documentTypes={documentTypes}
-            selectedType={selectedType}
-            schemaFields={schemaFields}
-            onTypeSelect={handleTypeSelect}
-            schema={schema}
-          />
-        </Box>
-      </Box>
-    )
-  }
-
   return (
     <Box padding={4}>
       <Stack space={5}>
@@ -319,12 +297,12 @@ export function Wizard({documentTypes, schema}: WizardProps) {
 
           {/* Step 2: Configure (References & Images) */}
           {currentStep === 'configure' && (
-            <Stack space={5}>
-              <Box>
+            <Stack space={4}>
+              <Box marginBottom={2}>
                 <Text weight="semibold" size={2}>
                   Configure Import Settings
                 </Text>
-                <Text muted size={1} style={{marginTop: '8px'}}>
+                <Text muted size={1} style={{marginTop: '4px'}}>
                   Set up how references and images should be matched
                 </Text>
               </Box>
@@ -334,7 +312,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   <Stack space={3}>
                     <Flex align="center" gap={2}>
                       <LinkIcon />
-                      <Text weight="semibold">Reference Fields</Text>
+                      <Text weight="semibold" size={1}>Reference Fields</Text>
                     </Flex>
                     <ReferenceConfig
                       schemaFields={schemaFields}
@@ -350,7 +328,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   <Stack space={3}>
                     <Flex align="center" gap={2}>
                       <ImageIcon />
-                      <Text weight="semibold">Image Fields</Text>
+                      <Text weight="semibold" size={1}>Image Fields</Text>
                     </Flex>
                     <ImageUploader
                       schemaFields={schemaFields}
@@ -360,9 +338,9 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                 </Card>
               )}
 
-              <Flex justify="space-between" gap={3}>
+              <Flex justify="space-between" marginTop={3}>
                 <Button text="Back" mode="ghost" onClick={() => setCurrentStep('select')} />
-                <Button text="Continue to Upload" tone="primary" onClick={handleConfigureContinue} />
+                <Button text="Continue" tone="primary" onClick={handleConfigureContinue} />
               </Flex>
             </Stack>
           )}

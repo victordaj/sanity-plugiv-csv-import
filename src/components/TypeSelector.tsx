@@ -3,7 +3,12 @@ import {Badge, Box, Card, Flex, Grid, Stack, Text, TextInput} from '@sanity/ui'
 import {useMemo, useState} from 'react'
 import {type Schema} from 'sanity'
 
-import {getSchemaFields, hasImageFields, hasReferenceFields, type SchemaField} from '../lib/schemaUtils'
+import {
+  getSchemaFields,
+  hasImageFields,
+  hasReferenceFields,
+  type SchemaField,
+} from '../lib/schemaUtils'
 
 export interface DocumentType {
   name: string
@@ -53,8 +58,7 @@ export function TypeSelector({
     if (!searchQuery.trim()) return typeInfos
     const query = searchQuery.toLowerCase()
     return typeInfos.filter(
-      (type) =>
-        type.title.toLowerCase().includes(query) || type.name.toLowerCase().includes(query),
+      (type) => type.title.toLowerCase().includes(query) || type.name.toLowerCase().includes(query),
     )
   }, [typeInfos, searchQuery])
 
@@ -101,7 +105,9 @@ export function TypeSelector({
               style={{
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
-                border: isSelected ? '2px solid var(--card-focus-ring-color)' : '2px solid transparent',
+                border: isSelected
+                  ? '2px solid var(--card-focus-ring-color)'
+                  : '2px solid transparent',
               }}
               onClick={() => onTypeSelect(type.name)}
             >

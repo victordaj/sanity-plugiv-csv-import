@@ -201,8 +201,7 @@ export function ImportProgress({
                       padding={3}
                       style={{
                         borderBottom:
-                          index <
-                          Math.min(results.filter((r) => !r.success).length, 20) - 1
+                          index < Math.min(results.filter((r) => !r.success).length, 20) - 1
                             ? '1px solid var(--card-border-color)'
                             : 'none',
                         backgroundColor: 'rgba(var(--card-badge-critical-bg-color-rgb), 0.1)',

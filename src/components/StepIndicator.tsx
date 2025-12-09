@@ -55,7 +55,8 @@ export function StepIndicator({
                       : isCurrent
                         ? 'var(--card-badge-primary-bg-color)'
                         : 'transparent',
-                    border: isCompleted || isCurrent ? 'none' : '2px solid var(--card-border-color)',
+                    border:
+                      isCompleted || isCurrent ? 'none' : '2px solid var(--card-border-color)',
                     transition: 'all 0.2s ease',
                   }}
                 >
