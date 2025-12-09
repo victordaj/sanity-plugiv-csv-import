@@ -11,5 +11,22 @@
     "plugin:react-hooks/recommended",
     "plugin:prettier/recommended",
     "plugin:react/jsx-runtime"
-  ]
+  ],
+  "rules": {
+    "no-nested-ternary": "warn",
+    "no-negated-condition": "warn",
+    "no-new": "warn",
+    "no-loop-func": "warn",
+    "no-case-declarations": "warn",
+    "default-case": "warn",
+    "max-depth": ["warn", 5],
+    "complexity": ["warn", 40],
+    "react/no-unescaped-entities": "warn",
+    "react/no-unused-prop-types": "warn",
+    "react-hooks/set-state-in-effect": "warn",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "@typescript-eslint/explicit-module-boundary-types": "warn",
+    "react/jsx-no-bind": "warn",
+    "react/no-array-index-key": "warn"
+  }
 }
