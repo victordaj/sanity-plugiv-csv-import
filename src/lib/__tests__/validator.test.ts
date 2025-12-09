@@ -138,9 +138,9 @@ describe('validator', () => {
       expect(result.rowValidation).toEqual([true, false, true])
     })
 
-    it('should not require _id column', () => {
+    it('should not flag _id column as unknown', () => {
       const headers = ['_id', 'title']
-      const rows = [{_id: 'doc-123', title: 'Hello'}]
+      const rows = [{_id: 'existing-doc-id', title: 'Hello'}]
       const options = {
         schemaFields: [createField({name: 'title', path: 'title'})],
         referenceConfig: [] as ReferenceMatchConfig[],
@@ -149,8 +149,8 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // _id should not trigger "unknown column" warning
-      const idWarning = result.issues.find((i) => i.field === '_id')
-      expect(idWarning).toBeUndefined()
+      const idIssues = result.issues.filter((issue) => issue.field === '_id')
+      expect(idIssues).toHaveLength(0)
     })
 
     it('should handle reference notation in headers', () => {
@@ -169,10 +169,10 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // Reference notation should be recognized, not flagged as unknown
-      const authorWarning = result.issues.find(
-        (i) => i.field === 'author→person.email' && i.message.includes('Unknown'),
-      )
-      expect(authorWarning).toBeUndefined()
+      const unknownWarnings = result.issues.filter((issue) => issue.message.includes('Unknown'))
+      const authorUnknown = unknownWarnings.some((issue) => issue.field === 'author→person.email')
+      expect(authorUnknown).toBe(false)
+      expect(authorUnknown).toBe(false)
     })
 
     it('should handle image alt text columns', () => {
@@ -181,7 +181,7 @@ describe('validator', () => {
       const options = {
         schemaFields: [
           createField({name: 'title', path: 'title'}),
-          createField({name: 'mainImage', path: 'mainImage', type: 'image'}),
+          createField({name: 'mainImage', path: 'mainImage', type: 'image', isImage: true}),
         ],
         referenceConfig: [] as ReferenceMatchConfig[],
       }
@@ -189,8 +189,8 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // .alt suffix should be recognized for image fields
-      const altWarning = result.issues.find((i) => i.field === 'mainImage.alt')
-      expect(altWarning).toBeUndefined()
+      const altIssues = result.issues.filter((issue) => issue.field === 'mainImage.alt')
+      expect(altIssues).toHaveLength(0)
     })
   })
 })
