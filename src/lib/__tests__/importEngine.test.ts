@@ -426,5 +426,148 @@ describe('importEngine', () => {
       expect(preview.referencesUnresolvable).toBe(1)
       consoleWarn.mockRestore()
     })
+
+    it('should use reference cache on second lookup', async () => {
+      const fetchMock = vi.fn().mockResolvedValue('cached-id')
+      const client = createMockClient({
+        fetch: fetchMock,
+      })
+      const results: TransformResult[] = [
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            author: {_type: 'reference', _ref: '__RESOLVE__john__BY__name__TYPE__author'},
+          },
+          errors: [],
+          warnings: [],
+        },
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            author: {_type: 'reference', _ref: '__RESOLVE__john__BY__name__TYPE__author'},
+          },
+          errors: [],
+          warnings: [],
+        },
+      ]
+
+      await previewImport(results, client as never)
+
+      // Should only fetch once due to caching
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('document resolution', () => {
+    it('should resolve array references', async () => {
+      const client = createMockClient({
+        fetch: vi.fn().mockResolvedValue('resolved-id'),
+      })
+      const results: TransformResult[] = [
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            categories: [
+              {_type: 'reference', _ref: '__RESOLVE__cat1__BY__slug__TYPE__category'},
+              {_type: 'reference', _ref: '__RESOLVE__cat2__BY__slug__TYPE__category'},
+            ],
+          },
+          errors: [],
+          warnings: [],
+        },
+      ]
+
+      const summary = await importDocuments(results, {
+        client: client as never,
+        documentType: 'post',
+        duplicateStrategy: 'create',
+      })
+
+      expect(summary.created).toBe(1)
+    })
+
+    it('should handle nested object references', async () => {
+      const client = createMockClient({
+        fetch: vi.fn().mockResolvedValue('nested-id'),
+      })
+      const results: TransformResult[] = [
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            metadata: {
+              author: {_type: 'reference', _ref: '__RESOLVE__jane__BY__email__TYPE__person'},
+            },
+          },
+          errors: [],
+          warnings: [],
+        },
+      ]
+
+      const summary = await importDocuments(results, {
+        client: client as never,
+        documentType: 'post',
+        duplicateStrategy: 'create',
+      })
+
+      expect(summary.created).toBe(1)
+    })
+
+    it('should handle malformed reference placeholder', async () => {
+      const client = createMockClient()
+      const results: TransformResult[] = [
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            author: {_type: 'reference', _ref: '__RESOLVE__malformed'},
+          },
+          errors: [],
+          warnings: [],
+        },
+      ]
+
+      const preview = await previewImport(results, client as never)
+
+      // Malformed placeholder returns unresolvable
+      expect(preview.referencesUnresolvable).toBe(1)
+    })
+
+    it('should filter out null from unresolved array references', async () => {
+      const client = createMockClient({
+        fetch: vi
+          .fn()
+          .mockResolvedValueOnce('found-id')
+          .mockResolvedValueOnce(null),
+      })
+      const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+      const results: TransformResult[] = [
+        {
+          success: true,
+          document: {
+            _type: 'post',
+            categories: [
+              {_type: 'reference', _ref: '__RESOLVE__found__BY__slug__TYPE__category'},
+              {_type: 'reference', _ref: '__RESOLVE__notfound__BY__slug__TYPE__category'},
+            ],
+          },
+          errors: [],
+          warnings: [],
+        },
+      ]
+
+      const summary = await importDocuments(results, {
+        client: client as never,
+        documentType: 'post',
+        duplicateStrategy: 'create',
+      })
+
+      expect(summary.created).toBe(1)
+      consoleWarn.mockRestore()
+    })
   })
 })

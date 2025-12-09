@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import {type ReferenceMatchConfig} from '../../components/ReferenceConfig'
-import {type TransformOptions, transformRow} from '../documentTransformer'
+import {type TransformOptions, transformAllRows, transformRow} from '../documentTransformer'
 import {type SchemaField} from '../schemaUtils'
 
 // Helper to create schema fields
@@ -341,6 +341,348 @@ describe('documentTransformer', () => {
       expect(result.success).toBe(true)
       expect(result.document?.title).toBe('Hello')
       expect(result.document?.description).toBeUndefined()
+    })
+
+    it('should handle text fields', () => {
+      const row = {body: 'Long text content here\nWith newlines'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'body', path: 'body', type: 'text'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.body).toBe('Long text content here\nWith newlines')
+    })
+
+    it('should handle geopoint fields', () => {
+      const row = {location: '40.7128,-74.0060'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'location', path: 'location', type: 'geopoint'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const geo = result.document?.location as {_type: string; lat: number; lng: number}
+      expect(geo._type).toBe('geopoint')
+      expect(geo.lat).toBe(40.7128)
+      expect(geo.lng).toBe(-74.006)
+    })
+
+    it('should handle invalid geopoint format', () => {
+      const row = {location: 'not-valid'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'location', path: 'location', type: 'geopoint'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(false)
+      expect(result.errors[0]).toContain('geopoint')
+    })
+
+    it('should handle geopoint with invalid latitude', () => {
+      const row = {location: '95,-74.006'} // lat > 90
+      const options = createOptions({
+        schemaFields: [createField({name: 'location', path: 'location', type: 'geopoint'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(false)
+      expect(result.errors[0]).toContain('latitude')
+    })
+
+    it('should handle geopoint with invalid longitude', () => {
+      const row = {location: '40,-200'} // lng > 180
+      const options = createOptions({
+        schemaFields: [createField({name: 'location', path: 'location', type: 'geopoint'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(false)
+      expect(result.errors[0]).toContain('longitude')
+    })
+
+    it('should handle reference with arrow notation in value', () => {
+      const row = {author: 'john-doe→name'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'author',
+            path: 'author',
+            type: 'reference',
+            isReference: true,
+            referenceTo: 'person',
+          }),
+        ],
+        referenceConfig: [],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const ref = result.document?.author as {_type: string; _ref: string}
+      expect(ref._type).toBe('reference')
+      expect(ref._ref).toContain('john-doe')
+      expect(ref._ref).toContain('name')
+    })
+
+    it('should handle reference without config (error)', () => {
+      const row = {author: 'some-value'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'author',
+            path: 'author',
+            type: 'reference',
+            isReference: true,
+            referenceTo: 'person',
+          }),
+        ],
+        referenceConfig: [],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(false)
+      expect(result.errors[0]).toContain('match field')
+    })
+
+    it('should handle image not found in uploaded images', () => {
+      const row = {mainImage: 'missing.jpg'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'mainImage', path: 'mainImage', type: 'image', isImage: true}),
+        ],
+        uploadedImages: new Map(),
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(false)
+      expect(result.errors[0]).toContain('not found in uploaded images')
+    })
+
+    it('should handle array of numbers', () => {
+      const row = {scores: '10, 20, 30'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'scores',
+            path: 'scores',
+            type: 'number',
+            isArray: true,
+            of: [{type: 'number'}],
+          }),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.scores).toEqual([10, 20, 30])
+    })
+
+    it('should handle array of references', () => {
+      const row = {categories: 'cat1, cat2, cat3'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'categories',
+            path: 'categories',
+            type: 'reference',
+            isArray: true,
+            isReference: true,
+            referenceTo: 'category',
+            of: [{type: 'reference'}],
+          }),
+        ],
+        referenceConfig: [{fieldPath: 'categories', targetType: 'category', matchField: 'slug'}],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const refs = result.document?.categories as Array<{_type: string; _ref: string}>
+      expect(refs).toHaveLength(3)
+      expect(refs[0]._type).toBe('reference')
+    })
+
+    it('should handle datetime with timezone', () => {
+      const row = {eventTime: '2024-01-15T10:30:00Z'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'eventTime', path: 'eventTime', type: 'datetime'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.eventTime).toBe('2024-01-15T10:30:00Z')
+    })
+
+    it('should handle datetime with offset', () => {
+      const row = {eventTime: '2024-01-15T10:30:00+05:30'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'eventTime', path: 'eventTime', type: 'datetime'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.eventTime).toBe('2024-01-15T10:30:00+05:30')
+    })
+
+    it('should handle datetime with milliseconds', () => {
+      const row = {eventTime: '2024-01-15T10:30:00.123Z'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'eventTime', path: 'eventTime', type: 'datetime'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.eventTime).toBe('2024-01-15T10:30:00.123Z')
+    })
+
+    it('should handle object fields with nested structure', () => {
+      // Object fields are handled by creating nested path structure directly
+      const row = {'seo.title': 'SEO Title', 'seo.description': 'SEO Desc'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'title', path: 'seo.title', type: 'string'}),
+          createField({name: 'description', path: 'seo.description', type: 'string'}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const seo = result.document?.seo as {title: string; description: string}
+      expect(seo.title).toBe('SEO Title')
+      expect(seo.description).toBe('SEO Desc')
+    })
+
+    it('should not include empty object fields', () => {
+      const row = {'address.street': '', 'address.city': ''}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'address',
+            path: 'address',
+            type: 'object',
+            fields: [
+              {name: 'street', type: 'string', title: 'Street', required: false},
+              {name: 'city', type: 'string', title: 'City', required: false},
+            ],
+          }),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.address).toBeUndefined()
+    })
+
+    it('should process object field with nested values using path notation', () => {
+      // Object fields are processed via the nested path approach
+      const row = {'meta.author': 'John', 'meta.views': '100'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'author', path: 'meta.author', type: 'string'}),
+          createField({name: 'views', path: 'meta.views', type: 'number'}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const meta = result.document?.meta as {author: string; views: number}
+      expect(meta.author).toBe('John')
+      expect(meta.views).toBe(100)
+    })
+
+    it('should handle object without fields definition', () => {
+      const row = {data: 'something'}
+      const options = createOptions({
+        schemaFields: [
+          createField({
+            name: 'data',
+            path: 'data',
+            type: 'object',
+            // No fields defined
+          }),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+    })
+
+    it('should handle empty array value', () => {
+      const row = {tags: ''}
+      const options = createOptions({
+        schemaFields: [createField({name: 'tags', path: 'tags', type: 'string', isArray: true})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.tags).toBeUndefined()
+    })
+
+    it('should handle deeply nested path values', () => {
+      const row = {'a.b.c': 'deep value'}
+      const options = createOptions({
+        schemaFields: [createField({name: 'c', path: 'a.b.c', type: 'string'})],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const doc = result.document as {a: {b: {c: string}}}
+      expect(doc.a.b.c).toBe('deep value')
+    })
+  })
+
+  describe('transformAllRows', () => {
+    it('should transform multiple rows', () => {
+      const rows = [
+        {title: 'Post 1', count: '10'},
+        {title: 'Post 2', count: '20'},
+        {title: 'Post 3', count: '30'},
+      ]
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'title', path: 'title', type: 'string'}),
+          createField({name: 'count', path: 'count', type: 'number'}),
+        ],
+      })
+
+      const results = transformAllRows(rows, options)
+
+      expect(results).toHaveLength(3)
+      expect(results[0].document?.title).toBe('Post 1')
+      expect(results[1].document?.title).toBe('Post 2')
+      expect(results[2].document?.title).toBe('Post 3')
+    })
+
+    it('should preserve row indices', () => {
+      const rows = [{title: 'Post 1'}, {title: ''}, {title: 'Post 3'}]
+      const options = createOptions({
+        schemaFields: [createField({name: 'title', path: 'title', type: 'string', required: true})],
+      })
+
+      const results = transformAllRows(rows, options)
+
+      expect(results).toHaveLength(3)
+      expect(results[0].success).toBe(true)
+      expect(results[1].success).toBe(false)
+      expect(results[2].success).toBe(true)
     })
   })
 })

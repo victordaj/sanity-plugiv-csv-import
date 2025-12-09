@@ -209,6 +209,152 @@ describe('schemaUtils', () => {
       expect(fields[0].isImage).toBe(true)
       expect(fields[0].isArray).toBe(true)
     })
+
+    it('should handle reference targets with name property', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'author',
+              type: {name: 'reference', to: [{name: 'person'}]},
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].referenceTarget).toContain('person')
+    })
+
+    it('should handle reference targets as strings', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'author',
+              type: {name: 'reference', to: ['person', 'organization']},
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].referenceTarget).toContain('person')
+      expect(fields[0].referenceTarget).toContain('organization')
+    })
+
+    it('should handle array of references with nested to targets', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'authors',
+              type: {
+                name: 'array',
+                of: [{type: 'reference', to: [{type: 'person'}, {name: 'org'}]}],
+              },
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].isReference).toBe(true)
+      expect(fields[0].referenceTarget).toContain('person')
+      expect(fields[0].referenceTarget).toContain('org')
+    })
+
+    it('should handle array of references with string targets', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'categories',
+              type: {
+                name: 'array',
+                of: [{type: 'reference', to: ['category']}],
+              },
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].referenceTarget).toContain('category')
+    })
+
+    it('should get correct array item type', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'numbers',
+              type: {name: 'array', of: [{type: 'number'}]},
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].type).toBe('number')
+      expect(fields[0].of).toEqual([{type: 'number'}])
+    })
+
+    it('should handle array with string type directly', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            createMockField({
+              name: 'items',
+              type: {name: 'array', of: ['string']},
+            }),
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].type).toBe('string')
+    })
+
+    it('should handle required validation rule', () => {
+      const schema = createMockSchema({
+        post: {
+          name: 'post',
+          type: 'document',
+          fields: [
+            {
+              name: 'title',
+              type: {
+                name: 'string',
+                validation: 'required',
+              },
+            },
+          ],
+        },
+      })
+
+      const fields = getSchemaFields(schema, 'post')
+
+      expect(fields[0].required).toBe(true)
+    })
   })
 
   describe('hasImageFields', () => {

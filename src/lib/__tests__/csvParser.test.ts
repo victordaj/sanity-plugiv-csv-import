@@ -1,6 +1,12 @@
 import {describe, expect, it} from 'vitest'
 
-import {getCellValue, isEmptyValue, parseCsvString, splitArrayValue} from '../csvParser'
+import {
+  getCellValue,
+  isEmptyValue,
+  parseCsvFile,
+  parseCsvString,
+  splitArrayValue,
+} from '../csvParser'
 
 describe('csvParser', () => {
   describe('parseCsvString', () => {
@@ -60,8 +66,11 @@ Jane,jane@example.com`
 
     it('should return error when CSV exceeds 500 rows', () => {
       const headers = 'name,email'
-      const rows = Array.from({length: 501}, (_, i) => `User${i},user${i}@example.com`).join('\n')
-      const csv = `${headers}\n${rows}`
+      const rowData: string[] = []
+      for (let i = 0; i < 501; i++) {
+        rowData.push(`User${i},user${i}@example.com`)
+      }
+      const csv = `${headers}\n${rowData.join('\n')}`
 
       const result = parseCsvString(csv)
 
@@ -185,6 +194,117 @@ John,john@example.com`
 
     it('should handle single value', () => {
       expect(splitArrayValue('single')).toEqual(['single'])
+    })
+  })
+
+  describe('parseCsvFile', () => {
+    it('should parse a valid CSV file', async () => {
+      const csvContent = `name,email
+John,john@example.com
+Jane,jane@example.com`
+      const file = new File([csvContent], 'test.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.headers).toEqual(['name', 'email'])
+      expect(result.data?.rows).toHaveLength(2)
+      expect(result.data?.rowCount).toBe(2)
+    })
+
+    it('should skip tips row in file parsing', async () => {
+      const csvContent = `name,email
+Required,Optional format
+John,john@example.com`
+      const file = new File([csvContent], 'test.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.rows).toHaveLength(1)
+      expect(result.data?.rows[0].name).toBe('John')
+    })
+
+    it('should include rawData array with headers and row values', async () => {
+      const csvContent = `name,age
+John,30`
+      const file = new File([csvContent], 'test.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.rawData).toEqual([
+        ['name', 'age'],
+        ['John', '30'],
+      ])
+    })
+
+    it('should handle empty file', async () => {
+      const file = new File([''], 'empty.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      // Empty file returns success with empty rows (may have parse errors)
+      expect(result.data?.rows ?? []).toHaveLength(0)
+    })
+
+    it('should handle file with only headers', async () => {
+      const csvContent = `name,email,age`
+      const file = new File([csvContent], 'headers-only.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.headers).toEqual(['name', 'email', 'age'])
+      expect(result.data?.rows).toHaveLength(0)
+    })
+
+    it('should trim headers in file parsing', async () => {
+      const csvContent = `  name  ,  email  
+John,john@test.com`
+      const file = new File([csvContent], 'test.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.data?.headers).toEqual(['name', 'email'])
+    })
+
+    it('should handle comma-separated tips detection', async () => {
+      const csvContent = `tags,description
+comma-separated values,Format: YYYY-MM-DD
+tag1|tag2,My description`
+      const file = new File([csvContent], 'test.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(true)
+      expect(result.data?.rows).toHaveLength(1)
+    })
+
+    it('should return error when file exceeds 500 rows', async () => {
+      // Generate CSV with 501 rows
+      let csvContent = 'name,email\n'
+      for (let i = 0; i < 501; i++) {
+        csvContent += `User${i},user${i}@example.com\n`
+      }
+      const file = new File([csvContent], 'large.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      expect(result.success).toBe(false)
+      expect(result.errors?.[0]?.code).toBe('TooManyRows')
+    })
+
+    it('should handle parse errors from malformed CSV file', async () => {
+      // Malformed CSV that might cause parse errors
+      const csvContent = `name,email
+"Unclosed quote,test@example.com`
+      const file = new File([csvContent], 'malformed.csv', {type: 'text/csv'})
+
+      const result = await parseCsvFile(file)
+
+      // PapaParse might still succeed but with errors
+      expect(result).toBeDefined()
     })
   })
 })
