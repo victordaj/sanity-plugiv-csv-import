@@ -1,5 +1,7 @@
 import {DownloadIcon} from '@sanity/icons'
 import {Box, Button, Card, Flex, Text} from '@sanity/ui'
+import type {JSX} from 'react'
+import {useCallback} from 'react'
 
 import {type SchemaField} from '../lib/schemaUtils'
 import {downloadTemplate} from '../lib/templateGenerator'
@@ -19,13 +21,17 @@ export function TemplateBar({
   schemaFields,
   referenceConfig,
   visible,
-}: TemplateBarProps) {
+}: TemplateBarProps): JSX.Element | null {
+  const handleDownloadXlsx = useCallback(() => {
+    downloadTemplate(schemaFields, referenceConfig, documentType, 'xlsx')
+  }, [schemaFields, referenceConfig, documentType])
+
+  const handleDownloadCsv = useCallback(() => {
+    downloadTemplate(schemaFields, referenceConfig, documentType, 'csv')
+  }, [schemaFields, referenceConfig, documentType])
+
   if (!visible || !documentType || schemaFields.length === 0) {
     return null
-  }
-
-  const handleDownload = (format: 'xlsx' | 'csv') => {
-    downloadTemplate(schemaFields, referenceConfig, documentType, format)
   }
 
   return (
@@ -64,15 +70,9 @@ export function TemplateBar({
               tone="primary"
               fontSize={1}
               padding={2}
-              onClick={() => handleDownload('xlsx')}
+              onClick={handleDownloadXlsx}
             />
-            <Button
-              text="CSV"
-              mode="ghost"
-              fontSize={1}
-              padding={2}
-              onClick={() => handleDownload('csv')}
-            />
+            <Button text="CSV" mode="ghost" fontSize={1} padding={2} onClick={handleDownloadCsv} />
           </Flex>
         </Flex>
       </Card>
