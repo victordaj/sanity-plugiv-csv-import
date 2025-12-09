@@ -1,11 +1,12 @@
 import {DocumentIcon, EditIcon, UploadIcon} from '@sanity/icons'
 import {Box, Button, Card, Flex, Stack, Text} from '@sanity/ui'
+import type {JSX} from 'react'
 
 export interface WelcomeScreenProps {
   onGetStarted: () => void
 }
 
-export function WelcomeScreen({onGetStarted}: WelcomeScreenProps) {
+export function WelcomeScreen({onGetStarted}: WelcomeScreenProps): JSX.Element {
   return (
     <Card padding={6} radius={3} shadow={1}>
       <Stack space={6}>
