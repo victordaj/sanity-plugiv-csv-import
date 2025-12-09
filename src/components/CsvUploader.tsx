@@ -1,5 +1,5 @@
-import {DocumentIcon, UploadIcon} from '@sanity/icons'
-import {Card, Flex, Stack, Text} from '@sanity/ui'
+import {CheckmarkCircleIcon, DocumentIcon, UploadIcon} from '@sanity/icons'
+import {Badge, Box, Card, Flex, Stack, Text} from '@sanity/ui'
 import {useCallback, useState} from 'react'
 
 import {type CsvParseError, parseCsvFile, type ParsedCsvData} from '../lib/csvParser'
@@ -14,6 +14,7 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<CsvParseError[]>([])
   const [fileName, setFileName] = useState<string | null>(null)
+  const [previewData, setPreviewData] = useState<ParsedCsvData | null>(null)
 
   const handleFileSelect = useCallback(
     async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -23,6 +24,7 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
       setIsLoading(true)
       setErrors([])
       setFileName(file.name)
+      setPreviewData(null)
 
       try {
         const result = await parseCsvFile(file)
@@ -48,6 +50,8 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
           console.warn('CSV missing some schema fields:', missingFields)
         }
 
+        // Store preview data and call parent
+        setPreviewData(result.data)
         onCsvParsed(result.data)
       } catch (err) {
         setErrors([
@@ -66,87 +70,275 @@ export function CsvUploader({schemaFields, onCsvParsed}: CsvUploaderProps) {
     [schemaFields, onCsvParsed],
   )
 
+  // Get matched and unmatched columns
+  const getColumnStatus = (header: string): 'matched' | 'extra' => {
+    const expectedFields = schemaFields.map((f) => f.path)
+    const isMatched = expectedFields.some(
+      (field) => header === field || header.startsWith(`${field}→`) || header === `${field}.alt`,
+    )
+    return isMatched ? 'matched' : 'extra'
+  }
+
   return (
     <Stack space={4}>
-      <Card padding={4} radius={2} tone="primary">
+      {/* Header */}
+      <Box>
+        <Text weight="semibold" size={2}>
+          Upload Your CSV
+        </Text>
+        <Text muted size={1} style={{marginTop: '8px'}}>
+          Drop your CSV file below. The first row should contain column headers.
+        </Text>
+      </Box>
+
+      {/* Drop zone */}
+      <Card
+        padding={5}
+        radius={3}
+        tone={previewData ? 'positive' : 'transparent'}
+        style={{
+          border: previewData ? '2px solid var(--card-badge-positive-bg-color)' : '2px dashed var(--card-border-color)',
+          textAlign: 'center',
+          position: 'relative',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        <input
+          type="file"
+          accept=".csv,.txt"
+          onChange={handleFileSelect}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            opacity: 0,
+            cursor: 'pointer',
+          }}
+          disabled={isLoading}
+        />
         <Stack space={3}>
-          <Text weight="semibold">Upload CSV File</Text>
-          <Text muted size={1}>
-            Upload your CSV file with data to import. The file should have headers matching the
-            template columns. Maximum {500} rows allowed.
+          <Flex justify="center">
+            {previewData ? (
+              <CheckmarkCircleIcon style={{fontSize: '2.5em', color: 'var(--card-badge-positive-fg-color)'}} />
+            ) : (
+              <UploadIcon style={{fontSize: '2.5em', opacity: 0.4}} />
+            )}
+          </Flex>
+          <Text muted={!previewData} weight={previewData ? 'semibold' : 'regular'}>
+            {isLoading
+              ? 'Parsing CSV...'
+              : previewData
+                ? 'File uploaded successfully'
+                : 'Click or drag CSV file here'}
           </Text>
-        </Stack>
-      </Card>
-
-      <Card padding={4} radius={2} shadow={1}>
-        <Stack space={4}>
-          <Card
-            padding={5}
-            radius={2}
-            tone="transparent"
-            style={{
-              border: '2px dashed var(--card-border-color)',
-              textAlign: 'center',
-              position: 'relative',
-            }}
-          >
-            <input
-              type="file"
-              accept=".csv,.txt"
-              onChange={handleFileSelect}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                height: '100%',
-                opacity: 0,
-                cursor: 'pointer',
-              }}
-              disabled={isLoading}
-            />
-            <Stack space={3}>
-              <Flex justify="center">
-                <UploadIcon style={{fontSize: '2em', opacity: 0.5}} />
-              </Flex>
-              <Text muted>
-                {isLoading ? 'Parsing CSV...' : 'Click or drag CSV file here to upload'}
-              </Text>
-              {fileName && (
-                <Flex align="center" justify="center" gap={2}>
-                  <DocumentIcon />
-                  <Text size={1}>{fileName}</Text>
-                </Flex>
+          {fileName && (
+            <Flex align="center" justify="center" gap={2}>
+              <DocumentIcon />
+              <Text size={1}>{fileName}</Text>
+              {previewData && (
+                <Badge tone="primary" fontSize={0}>
+                  {previewData.rows.length} rows
+                </Badge>
               )}
-            </Stack>
-          </Card>
-
-          {errors.length > 0 && (
-            <Card padding={4} radius={2} tone="critical">
-              <Stack space={3}>
-                <Text weight="semibold">Errors</Text>
-                {errors.map((error, index) => (
-                  <Text key={index} size={1}>
-                    {error.row !== undefined && `Row ${error.row + 1}: `}
-                    {error.message}
-                  </Text>
-                ))}
-              </Stack>
-            </Card>
+            </Flex>
           )}
-
-          <Card padding={3} radius={2} tone="caution">
-            <Stack space={2}>
-              <Text size={1} weight="semibold">
-                Expected columns:
-              </Text>
-              <Text size={1} style={{fontFamily: 'monospace', wordBreak: 'break-all'}}>
-                {schemaFields.map((f) => f.path).join(', ')}
-              </Text>
-            </Stack>
-          </Card>
+          {!previewData && (
+            <Text muted size={0}>
+              Supports CSV files up to 500 rows
+            </Text>
+          )}
         </Stack>
       </Card>
+
+      {/* Errors */}
+      {errors.length > 0 && (
+        <Card padding={4} radius={2} tone="critical">
+          <Stack space={3}>
+            <Text weight="semibold">Errors</Text>
+            {errors.map((error, index) => (
+              <Text key={index} size={1}>
+                {error.row !== undefined && `Row ${error.row + 1}: `}
+                {error.message}
+              </Text>
+            ))}
+          </Stack>
+        </Card>
+      )}
+
+      {/* CSV Preview */}
+      {previewData && (
+        <Card padding={4} radius={2} shadow={1}>
+          <Stack space={4}>
+            <Flex align="center" justify="space-between">
+              <Text weight="semibold" size={1}>
+                Preview (first 5 rows)
+              </Text>
+              <Flex gap={2}>
+                <Badge tone="default" fontSize={0}>
+                  {previewData.headers.length} columns
+                </Badge>
+                <Badge tone="positive" fontSize={0}>
+                  {previewData.rows.length} rows
+                </Badge>
+              </Flex>
+            </Flex>
+
+            {/* Column badges */}
+            <Flex wrap="wrap" gap={1}>
+              {previewData.headers.map((header, i) => (
+                <Badge
+                  key={i}
+                  tone={getColumnStatus(header) === 'matched' ? 'positive' : 'caution'}
+                  fontSize={0}
+                >
+                  {header}
+                </Badge>
+              ))}
+            </Flex>
+
+            {/* Preview table */}
+            <Box
+              style={{
+                overflowX: 'auto',
+                borderRadius: '4px',
+                border: '1px solid var(--card-border-color)',
+              }}
+            >
+              <table
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  fontSize: '12px',
+                  fontFamily: 'monospace',
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th
+                      style={{
+                        padding: '8px 12px',
+                        textAlign: 'left',
+                        backgroundColor: 'var(--card-bg2-color)',
+                        borderBottom: '1px solid var(--card-border-color)',
+                        fontWeight: 600,
+                        color: 'var(--card-muted-fg-color)',
+                      }}
+                    >
+                      #
+                    </th>
+                    {previewData.headers.slice(0, 6).map((header, i) => (
+                      <th
+                        key={i}
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'left',
+                          backgroundColor: 'var(--card-bg2-color)',
+                          borderBottom: '1px solid var(--card-border-color)',
+                          fontWeight: 600,
+                          maxWidth: '150px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        {header}
+                      </th>
+                    ))}
+                    {previewData.headers.length > 6 && (
+                      <th
+                        style={{
+                          padding: '8px 12px',
+                          textAlign: 'center',
+                          backgroundColor: 'var(--card-bg2-color)',
+                          borderBottom: '1px solid var(--card-border-color)',
+                          fontWeight: 400,
+                          color: 'var(--card-muted-fg-color)',
+                        }}
+                      >
+                        +{previewData.headers.length - 6} more
+                      </th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {previewData.rows.slice(0, 5).map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      <td
+                        style={{
+                          padding: '8px 12px',
+                          borderBottom: '1px solid var(--card-border-color)',
+                          color: 'var(--card-muted-fg-color)',
+                        }}
+                      >
+                        {rowIndex + 1}
+                      </td>
+                      {previewData.headers.slice(0, 6).map((header, colIndex) => (
+                        <td
+                          key={colIndex}
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid var(--card-border-color)',
+                            maxWidth: '150px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={row[header]}
+                        >
+                          {row[header] || '—'}
+                        </td>
+                      ))}
+                      {previewData.headers.length > 6 && (
+                        <td
+                          style={{
+                            padding: '8px 12px',
+                            borderBottom: '1px solid var(--card-border-color)',
+                            textAlign: 'center',
+                            color: 'var(--card-muted-fg-color)',
+                          }}
+                        >
+                          …
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Box>
+
+            {previewData.rows.length > 5 && (
+              <Text muted size={0} style={{textAlign: 'center'}}>
+                Showing 5 of {previewData.rows.length} rows
+              </Text>
+            )}
+          </Stack>
+        </Card>
+      )}
+
+      {/* Expected columns hint (only shown before upload) */}
+      {!previewData && (
+        <Card padding={3} radius={2} tone="transparent" style={{backgroundColor: 'var(--card-bg2-color)'}}>
+          <Stack space={2}>
+            <Text size={0} weight="semibold" muted>
+              Expected columns:
+            </Text>
+            <Flex wrap="wrap" gap={1}>
+              {schemaFields.slice(0, 8).map((f, i) => (
+                <Badge key={i} tone="default" fontSize={0}>
+                  {f.path}
+                </Badge>
+              ))}
+              {schemaFields.length > 8 && (
+                <Badge tone="default" fontSize={0}>
+                  +{schemaFields.length - 8} more
+                </Badge>
+              )}
+            </Flex>
+          </Stack>
+        </Card>
+      )}
     </Stack>
   )
 }
