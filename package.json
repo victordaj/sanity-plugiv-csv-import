@@ -43,27 +43,35 @@
     "watch": "pkg-utils watch --strict"
   },
   "dependencies": {
-    "@sanity/incompatible-plugin": "^1.0.5"
+    "@sanity/incompatible-plugin": "^1.0.5",
+    "papaparse": "^5.5.3",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@sanity/pkg-utils": "^10.1.2",
     "@sanity/plugin-kit": "^4.0.20",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@types/papaparse": "^5.5.1",
     "@types/react": "^19.2.7",
     "@typescript-eslint/eslint-plugin": "^8.49.0",
     "@typescript-eslint/parser": "^8.49.0",
+    "@vitejs/plugin-react": "^5.1.2",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-config-sanity": "^7.1.4",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-react": "^7.37.5",
     "eslint-plugin-react-hooks": "^7.0.1",
+    "jsdom": "^27.3.0",
     "prettier": "^3.7.4",
     "prettier-plugin-packagejson": "^2.5.20",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "sanity": "^4.20.3",
     "styled-components": "^6.1.19",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.15"
   },
   "peerDependencies": {
     "react": "^18",
