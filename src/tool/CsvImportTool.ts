@@ -3,6 +3,10 @@ import {type Tool} from 'sanity'
 
 import {CsvImportToolComponent} from '../components/CsvImportToolComponent'
 
+/**
+ * Props for the CSV Import Tool component
+ * @public
+ */
 export interface CsvImportToolProps {
   tool: Tool
 }

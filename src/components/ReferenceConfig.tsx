@@ -1,5 +1,5 @@
 import {Box, Button, Card, Grid, Select, Stack, Text} from '@sanity/ui'
-import React, {useEffect, useState} from 'react'
+import {useEffect, useState} from 'react'
 import {type Schema} from 'sanity'
 
 import {getMatchableFields, getReferenceFields, type SchemaField} from '../lib/schemaUtils'

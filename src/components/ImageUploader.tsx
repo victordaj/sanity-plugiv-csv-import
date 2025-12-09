@@ -1,6 +1,6 @@
 import {CheckmarkCircleIcon, TrashIcon, UploadIcon} from '@sanity/icons'
 import {Box, Button, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useState} from 'react'
+import {useCallback, useState} from 'react'
 import {useClient} from 'sanity'
 
 import {getImageFields, type SchemaField} from '../lib/schemaUtils'

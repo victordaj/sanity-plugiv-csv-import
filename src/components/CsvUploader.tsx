@@ -1,6 +1,6 @@
 import {DocumentIcon, UploadIcon} from '@sanity/icons'
 import {Card, Flex, Stack, Text} from '@sanity/ui'
-import React, {useCallback, useState} from 'react'
+import {useCallback, useState} from 'react'
 
 import {type CsvParseError, parseCsvFile, type ParsedCsvData} from '../lib/csvParser'
 import {type SchemaField} from '../lib/schemaUtils'

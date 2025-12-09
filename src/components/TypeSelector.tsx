@@ -1,6 +1,6 @@
 import {DownloadIcon} from '@sanity/icons'
 import {Box, Button, Card, Inline, Select, Stack, Text} from '@sanity/ui'
-import React, {useState} from 'react'
+import {useState} from 'react'
 import {type Schema} from 'sanity'
 
 import {type SchemaField} from '../lib/schemaUtils'

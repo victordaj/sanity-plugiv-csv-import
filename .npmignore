@@ -1,0 +1,25 @@
+# Development files
+node_modules/
+src/
+coverage/
+.git/
+.gitignore
+.editorconfig
+.eslintrc
+.eslintignore
+.prettierrc
+.prettierignore
+tsconfig.json
+tsconfig.settings.json
+tsconfig.dist.json
+package.config.ts
+pnpm-lock.yaml
+*.md
+!README.md
+
+# Test files
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+__tests__/

@@ -19,6 +19,8 @@ import {CsvImportTool} from './tool/CsvImportTool'
  *   plugins: [csvImportTool()],
  * })
  * ```
+ *
+ * @public
  */
 export const csvImportTool = definePlugin(() => {
   return {
