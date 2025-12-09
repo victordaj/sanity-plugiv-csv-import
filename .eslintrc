@@ -24,7 +24,7 @@
     "react/no-unescaped-entities": "warn",
     "react/no-unused-prop-types": "warn",
     "react-hooks/set-state-in-effect": "warn",
-    "@typescript-eslint/no-unused-vars": ["error", {"argsIgnorePattern": "^_"}],
+    "@typescript-eslint/no-unused-vars": ["error", {"argsIgnorePattern": "^_", "varsIgnorePattern": "^_"}],
     "@typescript-eslint/explicit-module-boundary-types": "warn",
     "react/jsx-no-bind": "warn",
     "react/no-array-index-key": "warn",

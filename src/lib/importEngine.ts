@@ -193,7 +193,7 @@ async function importSingleDocument(
           documentId: existingId,
           skipped: true,
         }
-      case 'update':
+      case 'update': {
         // Update existing document - remove _id and _type for patch
         const {_id: _updateId, _type: _updateType, ...updateFields} = resolvedDoc
         const updated = await client.patch(existingId).set(updateFields).commit()
@@ -202,8 +202,12 @@ async function importSingleDocument(
           success: true,
           documentId: updated._id,
         }
+      }
       case 'create':
         // Create with new ID (fall through to create)
+        break
+      default:
+        // Unknown strategy, fall through to create
         break
     }
   }

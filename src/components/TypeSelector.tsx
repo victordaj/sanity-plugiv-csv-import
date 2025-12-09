@@ -3,12 +3,7 @@ import {Badge, Box, Card, Flex, Grid, Stack, Text, TextInput} from '@sanity/ui'
 import {useMemo, useState} from 'react'
 import {type Schema} from 'sanity'
 
-import {
-  getSchemaFields,
-  hasImageFields,
-  hasReferenceFields,
-  type SchemaField,
-} from '../lib/schemaUtils'
+import {getSchemaFields, hasImageFields, hasReferenceFields} from '../lib/schemaUtils'
 
 export interface DocumentType {
   name: string
