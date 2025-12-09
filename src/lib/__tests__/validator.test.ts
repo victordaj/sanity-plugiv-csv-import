@@ -2,7 +2,7 @@ import {describe, expect, it} from 'vitest'
 
 import {type ReferenceMatchConfig} from '../../components/ReferenceConfig'
 import {type SchemaField} from '../schemaUtils'
-import {validateCsvData} from '../validator'
+import {validateCsvData, type ValidationIssue} from '../validator'
 
 // Helper to create a minimal schema field
 function createField(overrides: Partial<SchemaField> = {}): SchemaField {
@@ -17,6 +17,19 @@ function createField(overrides: Partial<SchemaField> = {}): SchemaField {
     isImage: false,
     ...overrides,
   }
+}
+
+// Helper functions to avoid nested callbacks in lint
+function filterByField(issues: ValidationIssue[], field: string): ValidationIssue[] {
+  return issues.filter((issue) => issue.field === field)
+}
+
+function filterByMessage(issues: ValidationIssue[], substring: string): ValidationIssue[] {
+  return issues.filter((issue) => issue.message.includes(substring))
+}
+
+function hasFieldMatch(issues: ValidationIssue[], field: string): boolean {
+  return issues.some((issue) => issue.field === field)
 }
 
 describe('validator', () => {
@@ -149,7 +162,7 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // _id should not trigger "unknown column" warning
-      const idIssues = result.issues.filter((issue) => issue.field === '_id')
+      const idIssues = filterByField(result.issues, '_id')
       expect(idIssues).toHaveLength(0)
     })
 
@@ -169,9 +182,8 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // Reference notation should be recognized, not flagged as unknown
-      const unknownWarnings = result.issues.filter((issue) => issue.message.includes('Unknown'))
-      const authorUnknown = unknownWarnings.some((issue) => issue.field === 'author→person.email')
-      expect(authorUnknown).toBe(false)
+      const unknownWarnings = filterByMessage(result.issues, 'Unknown')
+      const authorUnknown = hasFieldMatch(unknownWarnings, 'author→person.email')
       expect(authorUnknown).toBe(false)
     })
 
@@ -189,7 +201,7 @@ describe('validator', () => {
       const result = validateCsvData(headers, rows, options)
 
       // .alt suffix should be recognized for image fields
-      const altIssues = result.issues.filter((issue) => issue.field === 'mainImage.alt')
+      const altIssues = filterByField(result.issues, 'mainImage.alt')
       expect(altIssues).toHaveLength(0)
     })
   })
