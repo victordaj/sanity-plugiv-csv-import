@@ -277,7 +277,6 @@ export function Wizard({documentTypes, schema}: WizardProps) {
               <TypeSelector
                 documentTypes={documentTypes}
                 selectedType={selectedType}
-                schemaFields={schemaFields}
                 onTypeSelect={handleTypeSelect}
                 schema={schema}
               />
@@ -298,21 +297,14 @@ export function Wizard({documentTypes, schema}: WizardProps) {
           {/* Step 2: Configure (References & Images) */}
           {currentStep === 'configure' && (
             <Stack space={4}>
-              <Box marginBottom={2}>
-                <Text weight="semibold" size={2}>
-                  Configure Import Settings
-                </Text>
-                <Text muted size={1} style={{marginTop: '4px'}}>
-                  Set up how references and images should be matched
-                </Text>
-              </Box>
-
               {hasReferenceFields(schemaFields) && (
                 <Card padding={4} radius={2} tone="transparent" border>
                   <Stack space={3}>
                     <Flex align="center" gap={2}>
                       <LinkIcon />
-                      <Text weight="semibold" size={1}>Reference Fields</Text>
+                      <Text weight="semibold" size={1}>
+                        Reference Fields
+                      </Text>
                     </Flex>
                     <ReferenceConfig
                       schemaFields={schemaFields}
@@ -328,7 +320,9 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   <Stack space={3}>
                     <Flex align="center" gap={2}>
                       <ImageIcon />
-                      <Text weight="semibold" size={1}>Image Fields</Text>
+                      <Text weight="semibold" size={1}>
+                        Image Fields
+                      </Text>
                     </Flex>
                     <ImageUploader
                       schemaFields={schemaFields}
@@ -372,8 +366,6 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                 totalRows={csvData.rows.length}
                 validRows={validationResult.validRowCount}
                 issues={validationIssues}
-                onContinue={handleStartImport}
-                onCancel={() => setCurrentStep('upload')}
               />
 
               <DuplicateOptions
@@ -420,7 +412,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             documentTypeTitle={selectedTypeTitle}
             schemaFields={schemaFields}
             referenceConfig={referenceConfig}
-            visible={true}
+            visible
           />
         )}
       </Stack>

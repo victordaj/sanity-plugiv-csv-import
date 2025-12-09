@@ -1,4 +1,5 @@
 import {Box, Card, Grid, Select, Stack, Text} from '@sanity/ui'
+import type React from 'react'
 import {useEffect, useState} from 'react'
 import {type Schema} from 'sanity'
 

@@ -1,5 +1,6 @@
 import {CheckmarkCircleIcon, DocumentIcon, UploadIcon} from '@sanity/icons'
 import {Badge, Box, Card, Flex, Stack, Text} from '@sanity/ui'
+import type React from 'react'
 import {useCallback, useRef, useState} from 'react'
 
 import {type CsvParseError, parseCsvFile, type ParsedCsvData} from '../lib/csvParser'

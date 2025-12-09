@@ -1,9 +1,9 @@
 import {DownloadIcon} from '@sanity/icons'
 import {Box, Button, Card, Flex, Text} from '@sanity/ui'
 
-import {type ReferenceMatchConfig} from './ReferenceConfig'
 import {type SchemaField} from '../lib/schemaUtils'
 import {downloadTemplate} from '../lib/templateGenerator'
+import {type ReferenceMatchConfig} from './ReferenceConfig'
 
 export interface TemplateBarProps {
   documentType: string

@@ -18,7 +18,6 @@ export interface DocumentType {
 export interface TypeSelectorProps {
   documentTypes: DocumentType[]
   selectedType: string
-  schemaFields: SchemaField[]
   onTypeSelect: (typeName: string) => void
   schema: Schema
 }

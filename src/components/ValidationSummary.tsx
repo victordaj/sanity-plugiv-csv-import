@@ -12,8 +12,6 @@ export interface ValidationSummaryProps {
   totalRows: number
   validRows: number
   issues: ValidationIssue[]
-  onContinue: () => void
-  onCancel: () => void
 }
 
 export function ValidationSummary({totalRows, validRows, issues}: ValidationSummaryProps) {

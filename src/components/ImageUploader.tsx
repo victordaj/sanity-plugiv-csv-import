@@ -1,5 +1,6 @@
 import {TrashIcon, UploadIcon} from '@sanity/icons'
 import {Box, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
+import type React from 'react'
 import {useCallback, useRef, useState} from 'react'
 import {useClient} from 'sanity'
 
@@ -113,6 +114,11 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
     [uploadedImages, onImagesUploaded],
   )
 
+  const handleClearAll = useCallback(() => {
+    setUploadedImages([])
+    onImagesUploaded([])
+  }, [onImagesUploaded])
+
   const handleDropZoneClick = () => {
     fileInputRef.current?.click()
   }
@@ -165,9 +171,28 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
         </Card>
       )}
 
+      {/* Uploaded images header with clear all */}
+      {uploadedImages.length > 0 && (
+        <Flex align="center" justify="space-between">
+          <Text size={1} muted>
+            {uploadedImages.length} image{uploadedImages.length !== 1 ? 's' : ''} uploaded
+          </Text>
+          <Text
+            size={0}
+            style={{
+              color: 'var(--card-badge-critical-fg-color)',
+              cursor: 'pointer',
+            }}
+            onClick={handleClearAll}
+          >
+            Clear all
+          </Text>
+        </Flex>
+      )}
+
       {/* Uploaded images grid */}
       {uploadedImages.length > 0 && (
-        <Box style={{maxHeight: '240px', overflowY: 'auto'}}>
+        <Box style={{maxHeight: '200px', overflowY: 'auto'}}>
           <Grid columns={3} gap={3}>
             {uploadedImages.map((img) => (
               <Card key={img.filename} padding={2} radius={2} tone="positive">

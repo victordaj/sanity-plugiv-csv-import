@@ -20,17 +20,16 @@ export function CsvImportToolComponent() {
     <Box padding={4} sizing="border">
       <Container width={2}>
         <Stack space={5}>
-          <Card padding={4} radius={2} shadow={1}>
-            <Stack space={4}>
-              <Heading as="h1" size={3}>
-                CSV Import
+          <Box paddingY={2}>
+            <Stack space={2}>
+              <Heading as="h1" size={4} style={{fontWeight: 700}}>
+                Bulk Import
               </Heading>
-              <Text muted>
-                Import data from CSV files into your Sanity documents. Select a document type,
-                download a template, fill it with your data, and import.
+              <Text size={2} muted>
+                From spreadsheet to Sanity in seconds
               </Text>
             </Stack>
-          </Card>
+          </Box>
 
           {documentTypes.length === 0 ? (
             <Card padding={4} radius={2} tone="caution">
