@@ -1,6 +1,5 @@
-import {Box, Card, Grid, Select, Stack, Text} from '@sanity/ui'
-import type React from 'react'
-import {useEffect, useState} from 'react'
+import {Box, Button, Card, Grid, Select, Stack, Text} from '@sanity/ui'
+import {type ChangeEvent, useEffect, useState} from 'react'
 import {type Schema} from 'sanity'
 
 import {getMatchableFields, getReferenceFields, type SchemaField} from '../lib/schemaUtils'
@@ -45,18 +44,6 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
     setConfigs(initialConfigs)
   }, [schemaFields, schema])
 
-  // Auto-notify parent when configs change
-  useEffect(() => {
-    const mappings: ReferenceMatchConfig[] = configs
-      .filter((c) => c.targetType && c.matchField)
-      .map((c) => ({
-        fieldPath: c.field.path,
-        targetType: c.targetType,
-        matchField: c.matchField,
-      }))
-    onConfigured(mappings)
-  }, [configs, onConfigured])
-
   const handleTargetTypeChange = (index: number, targetType: string) => {
     setConfigs((prev) => {
       const updated = [...prev]
@@ -81,6 +68,19 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
       return updated
     })
   }
+
+  const handleContinue = () => {
+    const mappings: ReferenceMatchConfig[] = configs
+      .filter((c) => c.targetType && c.matchField)
+      .map((c) => ({
+        fieldPath: c.field.path,
+        targetType: c.targetType,
+        matchField: c.matchField,
+      }))
+    onConfigured(mappings)
+  }
+
+  const isValid = configs.every((c) => c.targetType && c.matchField)
 
   return (
     <Stack space={4}>
@@ -121,7 +121,7 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
                         fontSize={1}
                         padding={2}
                         value={config.targetType}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                           handleTargetTypeChange(index, e.target.value)
                         }
                       >
@@ -144,7 +144,7 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
                         fontSize={1}
                         padding={2}
                         value={config.matchField}
-                        onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
                           handleMatchFieldChange(index, e.target.value)
                         }
                         disabled={!config.targetType}
@@ -175,6 +175,17 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
           ))}
         </Stack>
       )}
+
+      <Box>
+        <Button
+          fontSize={2}
+          padding={3}
+          text="Continue"
+          tone="primary"
+          onClick={handleContinue}
+          disabled={!isValid}
+        />
+      </Box>
     </Stack>
   )
 }

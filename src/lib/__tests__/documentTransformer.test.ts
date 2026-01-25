@@ -1,7 +1,7 @@
 import {describe, expect, it} from 'vitest'
 
 import {type ReferenceMatchConfig} from '../../components/ReferenceConfig'
-import {type TransformOptions, transformAllRows, transformRow} from '../documentTransformer'
+import {transformAllRows, type TransformOptions, transformRow} from '../documentTransformer'
 import {type SchemaField} from '../schemaUtils'
 
 // Helper to create schema fields
@@ -15,6 +15,7 @@ function createField(overrides: Partial<SchemaField> = {}): SchemaField {
     isArray: false,
     isReference: false,
     isImage: false,
+    isRichText: false,
     ...overrides,
   }
 }
@@ -658,7 +659,7 @@ describe('documentTransformer', () => {
       })
 
       // We also need to populate with a value at path 'seo' for the object to be processed
-      row['seo'] = 'trigger-object'
+      row.seo = 'trigger-object'
 
       const result = transformRow(row, 0, options)
 
@@ -720,6 +721,124 @@ describe('documentTransformer', () => {
       expect(result.success).toBe(true)
       const doc = result.document as {a: {b: {c: string}}}
       expect(doc.a.b.c).toBe('deep value')
+    })
+  })
+
+  describe('block/Portable Text fields', () => {
+    it('should transform plain text to Portable Text blocks', () => {
+      const row = {content: 'Hello world'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const blocks = result.document?.content as Array<{
+        _type: string
+        children: Array<{text: string}>
+      }>
+      expect(Array.isArray(blocks)).toBe(true)
+      expect(blocks[0]._type).toBe('block')
+      expect(blocks[0].children[0].text).toBe('Hello world')
+    })
+
+    it('should transform Markdown headings to Portable Text', () => {
+      const row = {content: '# My Heading'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const blocks = result.document?.content as Array<{
+        _type: string
+        style: string
+        children: Array<{text: string}>
+      }>
+      expect(blocks[0].style).toBe('h1')
+      expect(blocks[0].children[0].text).toBe('My Heading')
+    })
+
+    it('should transform Markdown bold text to Portable Text', () => {
+      const row = {content: 'This is **bold** text'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const blocks = result.document?.content as Array<{
+        _type: string
+        children: Array<{text: string; marks: string[]}>
+      }>
+      expect(blocks[0].children).toHaveLength(3)
+      expect(blocks[0].children[1].text).toBe('bold')
+      expect(blocks[0].children[1].marks).toContain('strong')
+    })
+
+    it('should transform Markdown links to Portable Text', () => {
+      const row = {content: 'Visit [Sanity](https://sanity.io)'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const blocks = result.document?.content as Array<{
+        _type: string
+        markDefs: Array<{_type: string; href: string; _key: string}>
+        children: Array<{text: string; marks: string[]}>
+      }>
+      expect(blocks[0].markDefs).toHaveLength(1)
+      expect(blocks[0].markDefs[0]._type).toBe('link')
+      expect(blocks[0].markDefs[0].href).toBe('https://sanity.io')
+    })
+
+    it('should transform Markdown lists to Portable Text', () => {
+      const row = {content: '- Item 1\n- Item 2'}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      const blocks = result.document?.content as Array<{
+        _type: string
+        listItem: string
+        children: Array<{text: string}>
+      }>
+      expect(blocks).toHaveLength(2)
+      expect(blocks[0].listItem).toBe('bullet')
+      expect(blocks[1].listItem).toBe('bullet')
+    })
+
+    it('should handle empty block fields', () => {
+      const row = {content: ''}
+      const options = createOptions({
+        schemaFields: [
+          createField({name: 'content', path: 'content', type: 'block', isRichText: true}),
+        ],
+      })
+
+      const result = transformRow(row, 0, options)
+
+      expect(result.success).toBe(true)
+      expect(result.document?.content).toBeUndefined()
     })
   })
 

@@ -1,7 +1,12 @@
-import {TrashIcon, UploadIcon} from '@sanity/icons'
-import {Box, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
-import type React from 'react'
-import {useCallback, useRef, useState} from 'react'
+import {
+  CheckmarkCircleIcon,
+  CopyIcon,
+  TrashIcon,
+  UploadIcon,
+  WarningOutlineIcon,
+} from '@sanity/icons'
+import {Badge, Box, Button, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
+import {type ChangeEvent, useCallback, useState} from 'react'
 import {useClient} from 'sanity'
 
 import {getImageFields, type SchemaField} from '../lib/schemaUtils'
@@ -10,6 +15,11 @@ export interface UploadedImage {
   filename: string
   assetId: string
   url: string
+}
+
+export interface DuplicateInfo {
+  filename: string
+  existingIndex: number
 }
 
 export interface ImageUploaderProps {
@@ -22,22 +32,76 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [duplicates, setDuplicates] = useState<DuplicateInfo[]>([])
+  const [skippedDuplicates, setSkippedDuplicates] = useState<string[]>([])
 
   const imageFields = getImageFields(schemaFields)
 
-  const uploadFiles = useCallback(
-    async (files: FileList | File[]) => {
+  // Check for duplicates in the file list
+  const findDuplicates = useCallback(
+    (files: File[]): {duplicates: DuplicateInfo[]; newFiles: File[]} => {
+      const duplicateInfos: DuplicateInfo[] = []
+      const newFiles: File[] = []
+      const existingFilenames = new Set(uploadedImages.map((img) => img.filename.toLowerCase()))
+
+      for (const file of files) {
+        const lowerFilename = file.name.toLowerCase()
+        const existingIndex = uploadedImages.findIndex(
+          (img) => img.filename.toLowerCase() === lowerFilename,
+        )
+
+        if (existingIndex !== -1) {
+          duplicateInfos.push({
+            filename: file.name,
+            existingIndex,
+          })
+        } else if (existingFilenames.has(lowerFilename)) {
+          // Already processed in this batch
+          duplicateInfos.push({
+            filename: file.name,
+            existingIndex: -1,
+          })
+        } else {
+          existingFilenames.add(lowerFilename)
+          newFiles.push(file)
+        }
+      }
+
+      return {duplicates: duplicateInfos, newFiles}
+    },
+    [uploadedImages],
+  )
+
+  const handleFileSelect = useCallback(
+    async (event: ChangeEvent<HTMLInputElement>) => {
+      const files = event.target.files
       if (!files || files.length === 0) return
 
       setIsUploading(true)
       setError(null)
+      setDuplicates([])
+      setSkippedDuplicates([])
+
+      const fileArray = Array.from(files)
+
+      // Check for duplicates
+      const {duplicates: foundDuplicates, newFiles} = findDuplicates(fileArray)
+
+      if (foundDuplicates.length > 0) {
+        setDuplicates(foundDuplicates)
+        setSkippedDuplicates(foundDuplicates.map((d) => d.filename))
+      }
+
+      if (newFiles.length === 0) {
+        setIsUploading(false)
+        event.target.value = ''
+        return
+      }
 
       const newImages: UploadedImage[] = []
 
       try {
-        for (const file of Array.from(files)) {
+        for (const file of newFiles) {
           // Upload to Sanity assets
           const asset = await client.assets.upload('image', file, {
             filename: file.name,
@@ -50,199 +114,224 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
           })
         }
 
-        const updated = [...uploadedImages, ...newImages]
-        setUploadedImages(updated)
-        // Auto-notify parent when images are uploaded
-        onImagesUploaded(updated)
+        setUploadedImages((prev) => [...prev, ...newImages])
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to upload images')
       } finally {
         setIsUploading(false)
+        // Reset input
+        event.target.value = ''
       }
     },
-    [client, uploadedImages, onImagesUploaded],
+    [client, findDuplicates],
   )
 
-  const handleFileSelect = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const files = event.target.files
-      if (files) {
-        uploadFiles(files)
-      }
-      // Reset input for re-upload
-      event.target.value = ''
-    },
-    [uploadFiles],
-  )
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(true)
+  const handleRemoveImage = useCallback((filename: string) => {
+    setUploadedImages((prev) => prev.filter((img) => img.filename !== filename))
   }, [])
 
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setIsDragging(false)
+  const handleDismissDuplicateWarning = useCallback(() => {
+    setDuplicates([])
+    setSkippedDuplicates([])
   }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault()
-      e.stopPropagation()
-      setIsDragging(false)
-
-      const files = e.dataTransfer.files
-      if (files.length > 0) {
-        // Filter to only images
-        const imageFiles = Array.from(files).filter((f) => f.type.startsWith('image/'))
-        if (imageFiles.length > 0) {
-          uploadFiles(imageFiles)
-        }
-      }
-    },
-    [uploadFiles],
-  )
-
-  const handleRemoveImage = useCallback(
-    (filename: string) => {
-      const updated = uploadedImages.filter((img) => img.filename !== filename)
-      setUploadedImages(updated)
-      onImagesUploaded(updated)
-    },
-    [uploadedImages, onImagesUploaded],
-  )
-
-  const handleClearAll = useCallback(() => {
-    setUploadedImages([])
-    onImagesUploaded([])
-  }, [onImagesUploaded])
-
-  const handleDropZoneClick = () => {
-    fileInputRef.current?.click()
+  const handleContinue = () => {
+    onImagesUploaded(uploadedImages)
   }
 
+  const handleSkip = () => {
+    onImagesUploaded([])
+  }
+
+  // Get unique count (total uploaded minus any that might be conceptually duplicated)
+  const uniqueCount = uploadedImages.length
+
   return (
-    <Stack space={3}>
-      <Text muted size={1}>
-        Upload images that match filenames in your CSV (e.g., "hero.jpg")
-      </Text>
-
-      {/* Hidden file input */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        onChange={handleFileSelect}
-        style={{display: 'none'}}
-        disabled={isUploading}
-      />
-
-      {/* Drop zone */}
-      <Card
-        padding={4}
-        radius={2}
-        tone={isDragging ? 'primary' : 'transparent'}
-        style={{
-          border: isDragging
-            ? '2px solid var(--card-focus-ring-color)'
-            : '2px dashed var(--card-border-color)',
-          cursor: isUploading ? 'wait' : 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-        onClick={handleDropZoneClick}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <Flex align="center" justify="center" gap={3}>
-          <UploadIcon style={{fontSize: '1.5em', opacity: 0.5}} />
+    <Stack space={4}>
+      <Card padding={4} radius={2} tone="primary">
+        <Stack space={3}>
+          <Text weight="semibold">Upload Images</Text>
           <Text muted size={1}>
-            {isUploading ? 'Uploading...' : 'Click or drop images here'}
+            Upload images that will be referenced in your CSV. Name your files to match the values
+            you'll use in the CSV (e.g., if CSV has "hero.jpg" in the image column, upload a file
+            named "hero.jpg").
           </Text>
-        </Flex>
+        </Stack>
       </Card>
 
-      {error && (
-        <Card padding={3} radius={2} tone="critical">
-          <Text size={1}>{error}</Text>
-        </Card>
-      )}
-
-      {/* Uploaded images header with clear all */}
-      {uploadedImages.length > 0 && (
-        <Flex align="center" justify="space-between">
-          <Text size={1} muted>
-            {uploadedImages.length} image{uploadedImages.length !== 1 ? 's' : ''} uploaded
+      <Card padding={4} radius={2} shadow={1}>
+        <Stack space={3}>
+          <Text weight="semibold" size={1}>
+            Image Fields in Schema
           </Text>
-          <Text
-            size={0}
-            style={{
-              color: 'var(--card-badge-critical-fg-color)',
-              cursor: 'pointer',
-            }}
-            onClick={handleClearAll}
-          >
-            Clear all
-          </Text>
-        </Flex>
-      )}
+          {imageFields.map((field) => (
+            <Text key={field.path} size={1} style={{fontFamily: 'monospace'}}>
+              • {field.path}
+              {field.isArray && ' (array)'}
+              {field.required && ' (required)'}
+            </Text>
+          ))}
+        </Stack>
+      </Card>
 
-      {/* Uploaded images grid */}
-      {uploadedImages.length > 0 && (
-        <Box style={{maxHeight: '200px', overflowY: 'auto'}}>
-          <Grid columns={3} gap={3}>
-            {uploadedImages.map((img) => (
-              <Card key={img.filename} padding={2} radius={2} tone="positive">
-                <Stack space={2}>
-                  <Box
-                    style={{
-                      width: '100%',
-                      aspectRatio: '4/3',
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                    }}
-                  >
-                    <img
-                      src={`${img.url}?w=200&h=150&fit=crop`}
-                      alt={img.filename}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'contain',
-                        backgroundColor: 'var(--card-bg2-color)',
-                      }}
-                    />
-                  </Box>
-                  <Flex align="center" justify="space-between" gap={1}>
-                    <Text size={0} style={{wordBreak: 'break-all', flex: 1}} title={img.filename}>
-                      {img.filename.length > 15 ? `${img.filename.slice(0, 12)}...` : img.filename}
-                    </Text>
-                    <Box
-                      style={{cursor: 'pointer', opacity: 0.6}}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveImage(img.filename)
-                      }}
-                    >
-                      <TrashIcon />
-                    </Box>
-                  </Flex>
-                </Stack>
-              </Card>
-            ))}
-          </Grid>
-        </Box>
-      )}
+      <Card padding={4} radius={2} shadow={1}>
+        <Stack space={4}>
+          <Flex align="center" gap={3}>
+            <Box style={{position: 'relative'}}>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={handleFileSelect}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  opacity: 0,
+                  cursor: 'pointer',
+                }}
+                disabled={isUploading}
+              />
+              <Button
+                fontSize={1}
+                icon={UploadIcon}
+                mode="ghost"
+                padding={3}
+                text={isUploading ? 'Uploading...' : 'Select Images'}
+                disabled={isUploading}
+              />
+            </Box>
+            <Flex align="center" gap={2}>
+              <Text muted size={1}>
+                {uniqueCount} image(s) uploaded
+              </Text>
+              {uniqueCount > 0 && (
+                <Badge tone="positive" fontSize={0}>
+                  Ready
+                </Badge>
+              )}
+            </Flex>
+          </Flex>
 
-      {/* Show image fields info */}
-      {imageFields.length > 0 && (
-        <Text muted size={0}>
-          Fields: {imageFields.map((f) => f.path).join(', ')}
-        </Text>
-      )}
+          {error && (
+            <Card padding={3} radius={2} tone="critical">
+              <Text size={1}>{error}</Text>
+            </Card>
+          )}
+
+          {/* Duplicate Warning */}
+          {duplicates.length > 0 && (
+            <Card padding={4} radius={2} tone="caution">
+              <Stack space={3}>
+                <Flex align="center" gap={2}>
+                  <WarningOutlineIcon />
+                  <Text weight="semibold" size={1}>
+                    Duplicate Images Detected
+                  </Text>
+                  <Badge tone="caution" fontSize={0}>
+                    {duplicates.length} skipped
+                  </Badge>
+                </Flex>
+                <Text size={1} muted>
+                  The following files were skipped because images with the same name already exist:
+                </Text>
+                <Box
+                  style={{
+                    maxHeight: '120px',
+                    overflowY: 'auto',
+                    padding: '8px',
+                    backgroundColor: 'var(--card-bg2-color)',
+                    borderRadius: '4px',
+                  }}
+                >
+                  <Stack space={2}>
+                    {skippedDuplicates.map((filename) => (
+                      <Flex key={filename} align="center" gap={2}>
+                        <CopyIcon style={{color: 'var(--card-muted-fg-color)', flexShrink: 0}} />
+                        <Text size={1} style={{fontFamily: 'monospace'}}>
+                          {filename}
+                        </Text>
+                      </Flex>
+                    ))}
+                  </Stack>
+                </Box>
+                <Flex justify="flex-end">
+                  <Button
+                    fontSize={1}
+                    mode="ghost"
+                    padding={2}
+                    text="Dismiss"
+                    onClick={handleDismissDuplicateWarning}
+                  />
+                </Flex>
+              </Stack>
+            </Card>
+          )}
+
+          {uploadedImages.length > 0 && (
+            <Stack space={3}>
+              <Flex align="center" justify="space-between">
+                <Text weight="semibold" size={1}>
+                  Uploaded Images
+                </Text>
+                <Badge>{uploadedImages.length}</Badge>
+              </Flex>
+              <Box
+                style={{
+                  maxHeight: '300px',
+                  overflowY: 'auto',
+                }}
+              >
+                <Grid columns={3} gap={3}>
+                  {uploadedImages.map((img) => (
+                    <Card key={img.filename} padding={2} radius={2} shadow={1}>
+                      <Stack space={2}>
+                        <Box
+                          style={{
+                            width: '100%',
+                            height: '80px',
+                            backgroundImage: `url(${img.url}?w=200)`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            borderRadius: '4px',
+                          }}
+                        />
+                        <Flex align="center" justify="space-between">
+                          <Text size={0} style={{wordBreak: 'break-all'}}>
+                            {img.filename}
+                          </Text>
+                          <Button
+                            icon={TrashIcon}
+                            mode="bleed"
+                            padding={1}
+                            tone="critical"
+                            onClick={() => handleRemoveImage(img.filename)}
+                            title="Remove image"
+                          />
+                        </Flex>
+                      </Stack>
+                    </Card>
+                  ))}
+                </Grid>
+              </Box>
+            </Stack>
+          )}
+        </Stack>
+      </Card>
+
+      <Flex gap={3}>
+        <Button
+          fontSize={2}
+          icon={CheckmarkCircleIcon}
+          padding={3}
+          text={`Continue with ${uploadedImages.length} image(s)`}
+          tone="primary"
+          onClick={handleContinue}
+        />
+        <Button fontSize={2} mode="ghost" padding={3} text="Skip Images" onClick={handleSkip} />
+      </Flex>
     </Stack>
   )
 }

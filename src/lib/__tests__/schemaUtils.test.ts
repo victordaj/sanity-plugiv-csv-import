@@ -4,10 +4,12 @@ import {
   getImageFields,
   getMatchableFields,
   getReferenceFields,
+  getRichTextFields,
   getSchemaFields,
   getTopLevelFields,
   hasImageFields,
   hasReferenceFields,
+  hasRichTextFields,
   type SchemaField,
 } from '../schemaUtils'
 
@@ -369,6 +371,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: true,
+          isRichText: false,
         },
       ]
 
@@ -386,6 +389,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
       ]
 
@@ -409,6 +413,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: true,
           isImage: false,
+          isRichText: false,
           referenceTarget: ['person'],
         },
       ]
@@ -427,6 +432,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
       ]
 
@@ -446,6 +452,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
         {
           name: 'title',
@@ -456,6 +463,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
         {
           name: 'mainImage',
@@ -466,6 +474,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: true,
+          isRichText: false,
         },
       ]
 
@@ -486,6 +495,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
       ]
 
@@ -540,6 +550,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
         {
           name: 'mainImage',
@@ -550,6 +561,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: true,
+          isRichText: false,
         },
         {
           name: 'gallery',
@@ -560,6 +572,7 @@ describe('schemaUtils', () => {
           isArray: true,
           isReference: false,
           isImage: true,
+          isRichText: false,
         },
       ]
 
@@ -582,6 +595,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: false,
           isImage: false,
+          isRichText: false,
         },
         {
           name: 'author',
@@ -592,6 +606,7 @@ describe('schemaUtils', () => {
           isArray: false,
           isReference: true,
           isImage: false,
+          isRichText: false,
           referenceTarget: ['person'],
         },
         {
@@ -603,6 +618,7 @@ describe('schemaUtils', () => {
           isArray: true,
           isReference: true,
           isImage: false,
+          isRichText: false,
           referenceTarget: ['category'],
         },
       ]
@@ -611,6 +627,100 @@ describe('schemaUtils', () => {
 
       expect(referenceFields).toHaveLength(2)
       expect(getNames(referenceFields)).toEqual(['author', 'categories'])
+    })
+  })
+
+  describe('hasRichTextFields', () => {
+    it('should return true when rich text fields exist', () => {
+      const fields: SchemaField[] = [
+        {
+          name: 'title',
+          path: 'title',
+          type: 'string',
+          title: 'Title',
+          required: false,
+          isArray: false,
+          isReference: false,
+          isImage: false,
+          isRichText: false,
+        },
+        {
+          name: 'body',
+          path: 'body',
+          type: 'block',
+          title: 'Body',
+          required: false,
+          isArray: true,
+          isReference: false,
+          isImage: false,
+          isRichText: true,
+        },
+      ]
+
+      expect(hasRichTextFields(fields)).toBe(true)
+    })
+
+    it('should return false when no rich text fields exist', () => {
+      const fields: SchemaField[] = [
+        {
+          name: 'title',
+          path: 'title',
+          type: 'string',
+          title: 'Title',
+          required: false,
+          isArray: false,
+          isReference: false,
+          isImage: false,
+          isRichText: false,
+        },
+      ]
+
+      expect(hasRichTextFields(fields)).toBe(false)
+    })
+  })
+
+  describe('getRichTextFields', () => {
+    it('should return only rich text fields', () => {
+      const fields: SchemaField[] = [
+        {
+          name: 'title',
+          path: 'title',
+          type: 'string',
+          title: 'Title',
+          required: false,
+          isArray: false,
+          isReference: false,
+          isImage: false,
+          isRichText: false,
+        },
+        {
+          name: 'body',
+          path: 'body',
+          type: 'block',
+          title: 'Body',
+          required: false,
+          isArray: true,
+          isReference: false,
+          isImage: false,
+          isRichText: true,
+        },
+        {
+          name: 'excerpt',
+          path: 'excerpt',
+          type: 'block',
+          title: 'Excerpt',
+          required: false,
+          isArray: true,
+          isReference: false,
+          isImage: false,
+          isRichText: true,
+        },
+      ]
+
+      const richTextFields = getRichTextFields(fields)
+
+      expect(richTextFields).toHaveLength(2)
+      expect(getNames(richTextFields)).toEqual(['body', 'excerpt'])
     })
   })
 })
