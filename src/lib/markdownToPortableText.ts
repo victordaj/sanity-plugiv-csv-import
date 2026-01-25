@@ -44,28 +44,72 @@ function generateKey(): string {
 }
 
 /**
+ * Match interface for inline markdown elements
+ */
+interface InlineMatch {
+  index: number
+  length: number
+  text: string
+  marks: MarkType[]
+  linkMark?: MarkDef
+}
+
+/**
+ * Check if a match position overlaps with existing matches
+ */
+function hasOverlap(matches: InlineMatch[], matchIndex: number, matchLength: number): boolean {
+  return matches.some((m) => overlaps(m.index, m.length, matchIndex, matchLength))
+}
+
+/**
+ * Find all regex matches that don't overlap with existing matches
+ * @param text - The text to search
+ * @param regex - The regex pattern (must have global flag)
+ * @param existingMatches - Array of existing matches to check for overlap
+ * @param marks - Mark types to apply to matches
+ * @param textGroupIndex - Which capture group contains the matched text
+ */
+function findNonOverlappingMatches(
+  text: string,
+  regex: RegExp,
+  existingMatches: InlineMatch[],
+  marks: MarkType[],
+  textGroupIndex: number,
+): InlineMatch[] {
+  const newMatches: InlineMatch[] = []
+  let match = regex.exec(text)
+
+  while (match !== null) {
+    const matchIndex = match.index
+    const matchLength = match[0].length
+    const matchText = match[textGroupIndex]
+
+    if (!hasOverlap(existingMatches, matchIndex, matchLength)) {
+      newMatches.push({
+        index: matchIndex,
+        length: matchLength,
+        text: matchText,
+        marks: [...marks],
+      })
+    }
+
+    match = regex.exec(text)
+  }
+
+  return newMatches
+}
+
+/**
  * Parse inline markdown (bold, italic, links, code) and return spans
  */
 function parseInlineMarkdown(text: string): {spans: TextSpan[]; markDefs: MarkDef[]} {
-  const spans: TextSpan[] = []
   const markDefs: MarkDef[] = []
-  let lastIndex = 0
+  const matches: InlineMatch[] = []
 
-  // Collect all matches with their positions
-  interface Match {
-    index: number
-    length: number
-    text: string
-    marks: MarkType[]
-    linkMark?: MarkDef
-  }
-
-  const matches: Match[] = []
-
-  // Find all links first (they're most complex)
+  // Find all links first (they're most complex and have special handling)
   const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g
-  let linkMatch
-  while ((linkMatch = linkRegex.exec(text)) !== null) {
+  let linkMatch = linkRegex.exec(text)
+  while (linkMatch !== null) {
     const markDef: MarkDef = {
       _type: 'link',
       _key: generateKey(),
@@ -79,88 +123,45 @@ function parseInlineMarkdown(text: string): {spans: TextSpan[]; markDefs: MarkDe
       marks: [],
       linkMark: markDef,
     })
+    linkMatch = linkRegex.exec(text)
   }
 
-  // Find bold+italic
-  const boldItalicRegex = /(\*\*\*|___)(.+?)\1/g
-  let biMatch
-  while ((biMatch = boldItalicRegex.exec(text)) !== null) {
-    // Skip if overlaps with existing match
-    if (!matches.some((m) => overlaps(m.index, m.length, biMatch!.index, biMatch![0].length))) {
-      matches.push({
-        index: biMatch.index,
-        length: biMatch[0].length,
-        text: biMatch[2],
-        marks: ['strong', 'em'],
-      })
-    }
-  }
+  // Find and add non-overlapping matches for each inline style
+  // Bold+italic: ***text*** or ___text___
+  matches.push(
+    ...findNonOverlappingMatches(text, /(\*\*\*|___)(.+?)\1/g, matches, ['strong', 'em'], 2),
+  )
 
-  // Find bold
-  const boldRegex = /(\*\*|__)(.+?)\1/g
-  let boldMatch
-  while ((boldMatch = boldRegex.exec(text)) !== null) {
-    if (!matches.some((m) => overlaps(m.index, m.length, boldMatch!.index, boldMatch![0].length))) {
-      matches.push({
-        index: boldMatch.index,
-        length: boldMatch[0].length,
-        text: boldMatch[2],
-        marks: ['strong'],
-      })
-    }
-  }
+  // Bold: **text** or __text__
+  matches.push(...findNonOverlappingMatches(text, /(\*\*|__)(.+?)\1/g, matches, ['strong'], 2))
 
-  // Find italic
-  const italicRegex = /(\*|_)([^*_]+?)\1/g
-  let italicMatch
-  while ((italicMatch = italicRegex.exec(text)) !== null) {
-    if (
-      !matches.some((m) => overlaps(m.index, m.length, italicMatch!.index, italicMatch![0].length))
-    ) {
-      matches.push({
-        index: italicMatch.index,
-        length: italicMatch[0].length,
-        text: italicMatch[2],
-        marks: ['em'],
-      })
-    }
-  }
+  // Italic: *text* or _text_
+  matches.push(...findNonOverlappingMatches(text, /(\*|_)([^*_]+?)\1/g, matches, ['em'], 2))
 
-  // Find inline code
-  const codeRegex = /`([^`]+)`/g
-  let codeMatch
-  while ((codeMatch = codeRegex.exec(text)) !== null) {
-    if (!matches.some((m) => overlaps(m.index, m.length, codeMatch!.index, codeMatch![0].length))) {
-      matches.push({
-        index: codeMatch.index,
-        length: codeMatch[0].length,
-        text: codeMatch[1],
-        marks: ['code'],
-      })
-    }
-  }
+  // Inline code: `text`
+  matches.push(...findNonOverlappingMatches(text, /`([^`]+)`/g, matches, ['code'], 1))
 
-  // Find strikethrough
-  const strikeRegex = /~~(.+?)~~/g
-  let strikeMatch
-  while ((strikeMatch = strikeRegex.exec(text)) !== null) {
-    if (
-      !matches.some((m) => overlaps(m.index, m.length, strikeMatch!.index, strikeMatch![0].length))
-    ) {
-      matches.push({
-        index: strikeMatch.index,
-        length: strikeMatch[0].length,
-        text: strikeMatch[1],
-        marks: ['strike-through'],
-      })
-    }
-  }
+  // Strikethrough: ~~text~~
+  matches.push(...findNonOverlappingMatches(text, /~~(.+?)~~/g, matches, ['strike-through'], 1))
+
+  // Build spans from sorted matches
+  return buildSpansFromMatches(text, matches, markDefs)
+}
+
+/**
+ * Build text spans from sorted matches
+ */
+function buildSpansFromMatches(
+  text: string,
+  unsortedMatches: InlineMatch[],
+  markDefs: MarkDef[],
+): {spans: TextSpan[]; markDefs: MarkDef[]} {
+  const spans: TextSpan[] = []
 
   // Sort matches by position
-  matches.sort((a, b) => a.index - b.index)
+  const matches = [...unsortedMatches].sort((a, b) => a.index - b.index)
 
-  // Build spans
-  lastIndex = 0
+  let lastIndex = 0
   for (const match of matches) {
     // Add plain text before this match
     if (match.index > lastIndex) {

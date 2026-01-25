@@ -1,5 +1,5 @@
 import {Box, Button, Card, Grid, Select, Stack, Text} from '@sanity/ui'
-import {type ChangeEvent, useMemo, useState} from 'react'
+import {type ChangeEvent, type JSX, useCallback, useMemo, useState} from 'react'
 import {type Schema} from 'sanity'
 
 import {getMatchableFields, getReferenceFields, type SchemaField} from '../lib/schemaUtils'
@@ -23,7 +23,14 @@ interface ReferenceFieldConfig {
   availableMatchFields: SchemaField[]
 }
 
-export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceConfigProps) {
+/**
+ * Component for configuring how reference fields are matched during import
+ */
+export function ReferenceConfig({
+  schemaFields,
+  schema,
+  onConfigured,
+}: ReferenceConfigProps): JSX.Element {
   /**
    * Initialize reference field configurations based on schema
    * Using useMemo to avoid recalculation on every render
@@ -46,21 +53,30 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
 
   const [configs, setConfigs] = useState<ReferenceFieldConfig[]>(initialConfigs)
 
-  const handleTargetTypeChange = (index: number, targetType: string) => {
-    setConfigs((prev) => {
-      const updated = [...prev]
-      const matchFields = getMatchableFields(schema, targetType)
-      updated[index] = {
-        ...updated[index],
-        targetType,
-        matchField: matchFields[0]?.path || '',
-        availableMatchFields: matchFields,
-      }
-      return updated
-    })
-  }
+  /**
+   * Handle target type selection change
+   */
+  const handleTargetTypeChange = useCallback(
+    (index: number, targetType: string) => {
+      setConfigs((prev) => {
+        const updated = [...prev]
+        const matchFields = getMatchableFields(schema, targetType)
+        updated[index] = {
+          ...updated[index],
+          targetType,
+          matchField: matchFields[0]?.path || '',
+          availableMatchFields: matchFields,
+        }
+        return updated
+      })
+    },
+    [schema],
+  )
 
-  const handleMatchFieldChange = (index: number, matchField: string) => {
+  /**
+   * Handle match field selection change
+   */
+  const handleMatchFieldChange = useCallback((index: number, matchField: string) => {
     setConfigs((prev) => {
       const updated = [...prev]
       updated[index] = {
@@ -69,9 +85,29 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
       }
       return updated
     })
-  }
+  }, [])
 
-  const handleContinue = () => {
+  /**
+   * Create select change handler for target type
+   */
+  const createTargetTypeHandler = useCallback(
+    (index: number) => (e: ChangeEvent<HTMLSelectElement>) => {
+      handleTargetTypeChange(index, e.target.value)
+    },
+    [handleTargetTypeChange],
+  )
+
+  /**
+   * Create select change handler for match field
+   */
+  const createMatchFieldHandler = useCallback(
+    (index: number) => (e: ChangeEvent<HTMLSelectElement>) => {
+      handleMatchFieldChange(index, e.target.value)
+    },
+    [handleMatchFieldChange],
+  )
+
+  const handleContinue = useCallback(() => {
     const mappings: ReferenceMatchConfig[] = configs
       .filter((c) => c.targetType && c.matchField)
       .map((c) => ({
@@ -80,7 +116,7 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
         matchField: c.matchField,
       }))
     onConfigured(mappings)
-  }
+  }, [configs, onConfigured])
 
   const isValid = configs.every((c) => c.targetType && c.matchField)
 
@@ -123,9 +159,7 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
                         fontSize={1}
                         padding={2}
                         value={config.targetType}
-                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                          handleTargetTypeChange(index, e.target.value)
-                        }
+                        onChange={createTargetTypeHandler(index)}
                       >
                         <option value="">Select type...</option>
                         {config.field.referenceTarget?.map((target) => (
@@ -146,9 +180,7 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
                         fontSize={1}
                         padding={2}
                         value={config.matchField}
-                        onChange={(e: ChangeEvent<HTMLSelectElement>) =>
-                          handleMatchFieldChange(index, e.target.value)
-                        }
+                        onChange={createMatchFieldHandler(index)}
                         disabled={!config.targetType}
                       >
                         <option value="">Select field...</option>

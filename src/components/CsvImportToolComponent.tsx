@@ -1,9 +1,13 @@
 import {Box, Card, Container, Heading, Stack, Text} from '@sanity/ui'
+import {type JSX} from 'react'
 import {useSchema} from 'sanity'
 
 import {Wizard} from './Wizard'
 
-export function CsvImportToolComponent() {
+/**
+ * Main component for the CSV Import tool
+ */
+export function CsvImportToolComponent(): JSX.Element {
   const schema = useSchema()
 
   // Get all document types from schema

@@ -1,4 +1,5 @@
 import {Box, Card, Flex, Radio, Stack, Text} from '@sanity/ui'
+import {type JSX, useCallback} from 'react'
 
 export type DuplicateStrategy = 'skip' | 'update' | 'create'
 
@@ -34,11 +35,22 @@ const strategies: StrategyOption[] = [
   },
 ]
 
+/**
+ * Component for selecting duplicate handling strategy
+ */
 export function DuplicateOptions({
   duplicateCount,
   onStrategyChange,
   selectedStrategy,
-}: DuplicateOptionsProps) {
+}: DuplicateOptionsProps): JSX.Element {
+  /**
+   * Create memoized click handler for strategy selection
+   */
+  const createStrategyHandler = useCallback(
+    (strategyValue: DuplicateStrategy) => () => onStrategyChange(strategyValue),
+    [onStrategyChange],
+  )
+
   return (
     <Stack space={4}>
       {duplicateCount > 0 && (
@@ -66,13 +78,13 @@ export function DuplicateOptions({
                 radius={2}
                 tone={selectedStrategy === strategy.value ? 'primary' : 'default'}
                 style={{cursor: 'pointer'}}
-                onClick={() => onStrategyChange(strategy.value)}
+                onClick={createStrategyHandler(strategy.value)}
               >
                 <Flex gap={3}>
                   <Box style={{paddingTop: '2px'}}>
                     <Radio
                       checked={selectedStrategy === strategy.value}
-                      onChange={() => onStrategyChange(strategy.value)}
+                      onChange={createStrategyHandler(strategy.value)}
                     />
                   </Box>
                   <Stack space={1}>

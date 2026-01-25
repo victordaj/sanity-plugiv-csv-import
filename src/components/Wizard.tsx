@@ -1,5 +1,5 @@
 import {Box, Button, Card, Flex, Stack, Tab, TabList, TabPanel} from '@sanity/ui'
-import {useCallback, useState} from 'react'
+import {type JSX, useCallback, useState} from 'react'
 import {type Schema, useClient} from 'sanity'
 
 import {type ParsedCsvData} from '../lib/csvParser'
@@ -33,7 +33,10 @@ export interface WizardProps {
 
 type WizardStep = 'select' | 'references' | 'images' | 'upload' | 'validate' | 'import'
 
-export function Wizard({documentTypes, schema}: WizardProps) {
+/**
+ * Main wizard component for CSV import workflow
+ */
+export function Wizard({documentTypes, schema}: WizardProps): JSX.Element {
   // Client for Sanity operations
   const client = useClient({apiVersion: '2024-01-01'})
 

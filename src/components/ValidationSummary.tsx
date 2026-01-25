@@ -1,5 +1,6 @@
 import {CheckmarkCircleIcon, ErrorOutlineIcon, WarningOutlineIcon} from '@sanity/icons'
 import {Badge, Box, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
+import {type JSX} from 'react'
 
 export interface ValidationIssue {
   row: number
@@ -14,7 +15,14 @@ export interface ValidationSummaryProps {
   issues: ValidationIssue[]
 }
 
-export function ValidationSummary({totalRows, validRows, issues}: ValidationSummaryProps) {
+/**
+ * Component to display validation results summary
+ */
+export function ValidationSummary({
+  totalRows,
+  validRows,
+  issues,
+}: ValidationSummaryProps): JSX.Element {
   const errors = issues.filter((i) => i.type === 'error')
   const warnings = issues.filter((i) => i.type === 'warning')
 
@@ -105,9 +113,9 @@ export function ValidationSummary({totalRows, validRows, issues}: ValidationSumm
             <Text weight="semibold">Issues ({issues.length})</Text>
             <Box style={{maxHeight: '300px', overflowY: 'auto'}}>
               <Stack space={2}>
-                {issues.slice(0, 50).map((issue, index) => (
+                {issues.slice(0, 50).map((issue) => (
                   <Card
-                    key={index}
+                    key={`issue-${issue.row}-${issue.field}-${issue.type}`}
                     padding={3}
                     radius={2}
                     tone={issue.type === 'error' ? 'critical' : 'caution'}

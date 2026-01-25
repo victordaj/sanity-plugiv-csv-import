@@ -1,6 +1,6 @@
 import {ChevronLeftIcon, ChevronRightIcon, DocumentIcon} from '@sanity/icons'
 import {Badge, Box, Button, Card, Flex, Stack, Text} from '@sanity/ui'
-import {useState} from 'react'
+import {type JSX, useCallback, useState} from 'react'
 
 export interface CsvPreviewProps {
   headers: string[]
@@ -10,7 +10,10 @@ export interface CsvPreviewProps {
 
 const ROWS_PER_PAGE = 10
 
-export function CsvPreview({headers, rows, maxPreviewRows = 50}: CsvPreviewProps) {
+/**
+ * Component to preview CSV data with pagination
+ */
+export function CsvPreview({headers, rows, maxPreviewRows = 50}: CsvPreviewProps): JSX.Element {
   const [currentPage, setCurrentPage] = useState(0)
 
   const previewRows = rows.slice(0, maxPreviewRows)
@@ -19,14 +22,23 @@ export function CsvPreview({headers, rows, maxPreviewRows = 50}: CsvPreviewProps
   const endIndex = Math.min(startIndex + ROWS_PER_PAGE, previewRows.length)
   const currentRows = previewRows.slice(startIndex, endIndex)
 
-  const handlePrevPage = () => {
+  /**
+   * Navigate to previous page
+   */
+  const handlePrevPage = useCallback(() => {
     setCurrentPage((prev) => Math.max(0, prev - 1))
-  }
+  }, [])
 
-  const handleNextPage = () => {
+  /**
+   * Navigate to next page
+   */
+  const handleNextPage = useCallback(() => {
     setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
-  }
+  }, [totalPages])
 
+  /**
+   * Truncate long values for display
+   */
   const truncateValue = (value: string, maxLength = 40): string => {
     if (!value) return '—'
     if (value.length <= maxLength) return value

@@ -7,7 +7,7 @@ import {
   WarningOutlineIcon,
 } from '@sanity/icons'
 import {Badge, Box, Button, Card, Flex, Grid, Stack, Text} from '@sanity/ui'
-import {type ChangeEvent, useCallback, useState} from 'react'
+import {type ChangeEvent, type JSX, useCallback, useState} from 'react'
 import {useClient} from 'sanity'
 
 import {getImageFields, type SchemaField} from '../lib/schemaUtils'
@@ -35,7 +35,10 @@ export interface ImageUploaderProps {
   onImagesUploaded: (images: UploadedImage[]) => void
 }
 
-export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderProps) {
+/**
+ * Component for uploading images referenced in CSV data
+ */
+export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderProps): JSX.Element {
   const client = useClient({apiVersion: '2024-01-01'})
   const [uploadedImages, setUploadedImages] = useState<UploadedImage[]>([])
   const [isUploading, setIsUploading] = useState(false)
@@ -193,18 +196,28 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
     setUploadedImages((prev) => prev.filter((img) => img.filename !== filename))
   }, [])
 
+  /**
+   * Create remove handler for a specific image
+   */
+  const createRemoveHandler = useCallback(
+    (filename: string) => () => {
+      handleRemoveImage(filename)
+    },
+    [handleRemoveImage],
+  )
+
   const handleDismissDuplicateWarning = useCallback(() => {
     setDuplicates([])
     setSkippedDuplicates([])
   }, [])
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     onImagesUploaded(uploadedImages)
-  }
+  }, [onImagesUploaded, uploadedImages])
 
-  const handleSkip = () => {
+  const handleSkip = useCallback(() => {
     onImagesUploaded([])
-  }
+  }, [onImagesUploaded])
 
   // Get unique count (total uploaded minus any that might be conceptually duplicated)
   const uniqueCount = uploadedImages.length
@@ -498,7 +511,7 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
                             mode="bleed"
                             padding={1}
                             tone="critical"
-                            onClick={() => handleRemoveImage(img.filename)}
+                            onClick={createRemoveHandler(img.filename)}
                             title="Remove image"
                           />
                         </Flex>

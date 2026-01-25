@@ -29,8 +29,11 @@ export function StepIndicator({
 }: StepIndicatorProps): JSX.Element {
   const currentIndex = steps.findIndex((s) => s.id === currentStepId)
 
-  const handleStepClick = useCallback(
-    (stepId: string, isClickable: boolean) => {
+  /**
+   * Create click handler for a specific step
+   */
+  const createStepClickHandler = useCallback(
+    (stepId: string, isClickable: boolean) => () => {
       if (isClickable && onStepClick) {
         onStepClick(stepId)
       }
@@ -57,7 +60,7 @@ export function StepIndicator({
                   opacity: !isCompleted && !isCurrent ? 0.5 : 1,
                   transition: 'opacity 0.2s ease',
                 }}
-                onClick={handleStepClick.bind(null, step.id, isClickable)}
+                onClick={createStepClickHandler(step.id, isClickable)}
               >
                 {/* Circle */}
                 <Flex

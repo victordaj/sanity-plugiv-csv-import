@@ -23,6 +23,176 @@ export interface ValidatorOptions {
 }
 
 /**
+ * Fallback URL validation for environments without URL.canParse
+ * Uses try-catch around URL constructor to validate
+ */
+function isValidUrlFallback(url: string): boolean {
+  try {
+    // eslint-disable-next-line no-new -- URL constructor is used for validation
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Context object for field validation to reduce parameter passing
+ */
+interface FieldValidationContext {
+  row: number
+  field: string
+  value: string
+}
+
+/**
+ * Helper to create a validation issue
+ */
+function createIssue(
+  ctx: FieldValidationContext,
+  type: 'error' | 'warning',
+  message: string,
+): ValidationIssue {
+  return {row: ctx.row, field: ctx.field, type, message}
+}
+
+/**
+ * Validate number field
+ */
+function validateNumber(ctx: FieldValidationContext): ValidationIssue | null {
+  if (isNaN(parseFloat(ctx.value))) {
+    return createIssue(ctx, 'error', `Invalid number: "${ctx.value}"`)
+  }
+  return null
+}
+
+/**
+ * Validate boolean field
+ */
+function validateBoolean(ctx: FieldValidationContext): ValidationIssue | null {
+  const validBooleans = ['true', 'false', '1', '0', 'yes', 'no', 'y', 'n']
+  if (!validBooleans.includes(ctx.value.toLowerCase().trim())) {
+    return createIssue(ctx, 'error', `Invalid boolean: "${ctx.value}". Use true/false, 1/0, yes/no`)
+  }
+  return null
+}
+
+/**
+ * Validate date/datetime field
+ */
+function validateDate(ctx: FieldValidationContext): ValidationIssue | null {
+  const dateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d{3})?(Z|[+-]\d{2}:\d{2})?)?$/
+  const trimmedVal = ctx.value.trim()
+
+  if (dateRegex.test(trimmedVal)) {
+    // Format valid, verify the value is parseable
+    const date = new Date(trimmedVal)
+    if (isNaN(date.getTime())) {
+      return createIssue(ctx, 'error', `Invalid date value`)
+    }
+    return null
+  }
+  // Format doesn't match ISO 8601
+  return createIssue(
+    ctx,
+    'error',
+    `Invalid date format. Use ISO 8601 (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)`,
+  )
+}
+
+/**
+ * Validate URL field
+ */
+function validateUrl(ctx: FieldValidationContext): ValidationIssue | null {
+  const trimmedUrl = ctx.value.trim()
+  const isValidUrl = URL.canParse ? URL.canParse(trimmedUrl) : isValidUrlFallback(trimmedUrl)
+  if (!isValidUrl) {
+    return createIssue(ctx, 'error', `Invalid URL: "${ctx.value}"`)
+  }
+  return null
+}
+
+/**
+ * Validate email field
+ */
+function validateEmail(ctx: FieldValidationContext): ValidationIssue | null {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(ctx.value.trim())) {
+    return createIssue(ctx, 'error', `Invalid email: "${ctx.value}"`)
+  }
+  return null
+}
+
+/**
+ * Validate reference field
+ */
+function validateReference(
+  ctx: FieldValidationContext,
+  referenceConfig: ReferenceMatchConfig[],
+): ValidationIssue | null {
+  const config = referenceConfig.find((c) => c.fieldPath === ctx.field)
+  const hasArrowNotation = ctx.value.includes('→')
+  if (!config && !hasArrowNotation) {
+    return createIssue(ctx, 'warning', `Reference field has no match configuration`)
+  }
+  return null
+}
+
+/**
+ * Validate geopoint field
+ */
+function validateGeopoint(ctx: FieldValidationContext): ValidationIssue | null {
+  const parts = ctx.value.split(',').map((p) => p.trim())
+  if (parts.length !== 2) {
+    return createIssue(ctx, 'error', `Invalid geopoint format. Use "lat,lng"`)
+  }
+
+  const lat = parseFloat(parts[0])
+  const lng = parseFloat(parts[1])
+  if (isNaN(lat) || isNaN(lng)) {
+    return createIssue(ctx, 'error', `Invalid geopoint coordinates`)
+  }
+  if (lat < -90 || lat > 90) {
+    return createIssue(ctx, 'error', `Latitude must be between -90 and 90`)
+  }
+  if (lng < -180 || lng > 180) {
+    return createIssue(ctx, 'error', `Longitude must be between -180 and 180`)
+  }
+  return null
+}
+
+/**
+ * Validate slug field
+ */
+function validateSlug(ctx: FieldValidationContext): ValidationIssue | null {
+  if (/\s/.test(ctx.value)) {
+    return createIssue(ctx, 'warning', `Slug contains spaces: "${ctx.value}"`)
+  }
+  return null
+}
+
+/**
+ * Validate array items
+ */
+function validateArrayItems(ctx: FieldValidationContext, field: SchemaField): ValidationIssue[] {
+  const issues: ValidationIssue[] = []
+  if (!field.isArray || !ctx.value.includes('|')) {
+    return issues
+  }
+
+  const items = ctx.value.split('|').map((v) => v.trim())
+  // Check each item for basic validity based on array item type
+  if (field.of?.[0]?.type === 'number') {
+    for (const item of items) {
+      if (isNaN(parseFloat(item))) {
+        issues.push(createIssue(ctx, 'error', `Array contains invalid number: "${item}"`))
+      }
+    }
+  }
+  return issues
+}
+
+/**
  * Validate CSV data against schema
  */
 export function validateCsvData(
@@ -134,6 +304,7 @@ function validateRow(
 
 /**
  * Validate a single field value
+ * Uses extracted helper functions for each field type to keep complexity manageable
  */
 function validateField(
   row: Record<string, string>,
@@ -162,180 +333,52 @@ function validateField(
 
   // Type-specific validation - value is guaranteed to be string here
   const val = value as string
-  switch (field.type) {
-    case 'number':
-      if (isNaN(parseFloat(val))) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid number: "${val}"`,
-        })
-      }
-      break
+  const ctx: FieldValidationContext = {row: rowIndex, field: field.path, value: val}
 
-    case 'boolean': {
-      const validBooleans = ['true', 'false', '1', '0', 'yes', 'no', 'y', 'n']
-      if (!validBooleans.includes(val.toLowerCase().trim())) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid boolean: "${val}". Use true/false, 1/0, yes/no`,
-        })
-      }
-      break
-    }
-
-    case 'date':
-    case 'datetime': {
-      const dateRegex = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}(:\d{2})?(\.\d{3})?(Z|[+-]\d{2}:\d{2})?)?$/
-      if (!dateRegex.test(val.trim())) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid date format. Use ISO 8601 (YYYY-MM-DD or YYYY-MM-DDTHH:mm:ss)`,
-        })
-      } else {
-        const date = new Date(val.trim())
-        if (isNaN(date.getTime())) {
-          issues.push({
-            row: rowIndex,
-            field: field.path,
-            type: 'error',
-            message: `Invalid date value`,
-          })
-        }
-      }
-      break
-    }
-
-    case 'url':
-      try {
-        new URL(val.trim())
-      } catch {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid URL: "${val}"`,
-        })
-      }
-      break
-
-    case 'email': {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(val.trim())) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid email: "${val}"`,
-        })
-      }
-      break
-    }
-
-    case 'reference': {
-      // Check if reference config exists for this field
-      const config = referenceConfig.find((c) => c.fieldPath === field.path)
-      const hasArrowNotation = val.includes('→')
-      if (!config && !hasArrowNotation) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'warning',
-          message: `Reference field has no match configuration`,
-        })
-      }
-      break
-    }
-
-    case 'geopoint': {
-      const parts = val.split(',').map((p) => p.trim())
-      if (parts.length !== 2) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'error',
-          message: `Invalid geopoint format. Use "lat,lng"`,
-        })
-      } else {
-        const lat = parseFloat(parts[0])
-        const lng = parseFloat(parts[1])
-        if (isNaN(lat) || isNaN(lng)) {
-          issues.push({
-            row: rowIndex,
-            field: field.path,
-            type: 'error',
-            message: `Invalid geopoint coordinates`,
-          })
-        } else if (lat < -90 || lat > 90) {
-          issues.push({
-            row: rowIndex,
-            field: field.path,
-            type: 'error',
-            message: `Latitude must be between -90 and 90`,
-          })
-        } else if (lng < -180 || lng > 180) {
-          issues.push({
-            row: rowIndex,
-            field: field.path,
-            type: 'error',
-            message: `Longitude must be between -180 and 180`,
-          })
-        }
-      }
-      break
-    }
-
-    case 'image':
-      // Just a warning that image needs to be uploaded
-      issues.push({
-        row: rowIndex,
-        field: field.path,
-        type: 'warning',
-        message: `Image "${val}" must be uploaded`,
-      })
-      break
-
-    case 'slug':
-      // Validate slug format (no spaces, lowercase recommended)
-      if (/\s/.test(val)) {
-        issues.push({
-          row: rowIndex,
-          field: field.path,
-          type: 'warning',
-          message: `Slug contains spaces: "${val}"`,
-        })
-      }
-      break
-
-    default:
-      // No validation for unknown types
-      break
+  // Validate by type using extracted helper functions
+  const typeIssue = validateFieldByType(ctx, field.type, referenceConfig)
+  if (typeIssue) {
+    issues.push(typeIssue)
   }
 
-  // Validate arrays
-  if (field.isArray && val.includes('|')) {
-    const items = val.split('|').map((v) => v.trim())
-    // Check each item for basic validity based on array item type
-    if (field.of?.[0]?.type === 'number') {
-      for (const item of items) {
-        if (isNaN(parseFloat(item))) {
-          issues.push({
-            row: rowIndex,
-            field: field.path,
-            type: 'error',
-            message: `Array contains invalid number: "${item}"`,
-          })
-        }
-      }
-    }
-  }
+  // Validate array items if applicable
+  issues.push(...validateArrayItems(ctx, field))
 
   return issues
+}
+
+/**
+ * Route validation to the appropriate type-specific validator
+ */
+function validateFieldByType(
+  ctx: FieldValidationContext,
+  type: string,
+  referenceConfig: ReferenceMatchConfig[],
+): ValidationIssue | null {
+  switch (type) {
+    case 'number':
+      return validateNumber(ctx)
+    case 'boolean':
+      return validateBoolean(ctx)
+    case 'date':
+    case 'datetime':
+      return validateDate(ctx)
+    case 'url':
+      return validateUrl(ctx)
+    case 'email':
+      return validateEmail(ctx)
+    case 'reference':
+      return validateReference(ctx, referenceConfig)
+    case 'geopoint':
+      return validateGeopoint(ctx)
+    case 'slug':
+      return validateSlug(ctx)
+    case 'image':
+      // Image fields always get a warning that the image must be uploaded
+      return createIssue(ctx, 'warning', `Image "${ctx.value}" must be uploaded`)
+    default:
+      return null // No validation for unknown types
+  }
 }
 
 /**

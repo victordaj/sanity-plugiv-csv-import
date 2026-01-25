@@ -1,6 +1,6 @@
 import {CheckmarkCircleIcon, CloseCircleIcon, ErrorOutlineIcon, SyncIcon} from '@sanity/icons'
 import {Badge, Box, Card, Flex, Stack, Text} from '@sanity/ui'
-import {useEffect, useRef} from 'react'
+import {type JSX, useEffect, useRef} from 'react'
 
 export interface ImportResult {
   row: number
@@ -17,12 +17,15 @@ export interface ImportProgressProps {
   isComplete: boolean
 }
 
+/**
+ * Component to display import progress and results
+ */
 export function ImportProgress({
   totalRows,
   processedRows,
   results,
   isComplete,
-}: ImportProgressProps) {
+}: ImportProgressProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
   const successCount = results.filter((r) => r.success).length
   const errorCount = results.filter((r) => !r.success).length
