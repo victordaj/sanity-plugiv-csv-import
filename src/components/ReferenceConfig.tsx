@@ -1,5 +1,5 @@
 import {Box, Button, Card, Grid, Select, Stack, Text} from '@sanity/ui'
-import {type ChangeEvent, useEffect, useState} from 'react'
+import {type ChangeEvent, useMemo, useState} from 'react'
 import {type Schema} from 'sanity'
 
 import {getMatchableFields, getReferenceFields, type SchemaField} from '../lib/schemaUtils'
@@ -24,12 +24,13 @@ interface ReferenceFieldConfig {
 }
 
 export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceConfigProps) {
-  const [configs, setConfigs] = useState<ReferenceFieldConfig[]>([])
-
-  // Initialize configs for each reference field
-  useEffect(() => {
+  /**
+   * Initialize reference field configurations based on schema
+   * Using useMemo to avoid recalculation on every render
+   */
+  const initialConfigs = useMemo((): ReferenceFieldConfig[] => {
     const referenceFields = getReferenceFields(schemaFields)
-    const initialConfigs: ReferenceFieldConfig[] = referenceFields.map((field) => {
+    return referenceFields.map((field) => {
       const targetTypes = field.referenceTarget || []
       const firstTarget = targetTypes[0] || ''
       const matchFields = firstTarget ? getMatchableFields(schema, firstTarget) : []
@@ -41,8 +42,9 @@ export function ReferenceConfig({schemaFields, schema, onConfigured}: ReferenceC
         availableMatchFields: matchFields,
       }
     })
-    setConfigs(initialConfigs)
   }, [schemaFields, schema])
+
+  const [configs, setConfigs] = useState<ReferenceFieldConfig[]>(initialConfigs)
 
   const handleTargetTypeChange = (index: number, targetType: string) => {
     setConfigs((prev) => {

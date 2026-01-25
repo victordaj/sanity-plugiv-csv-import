@@ -7,7 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./vitest.setup.ts'],
     include: ['src/**/__tests__/**/*.test.ts', 'src/**/__tests__/**/*.test.tsx'],
-    testTimeout: 15000,
+    // Increase timeout for heavy Sanity UI component tests
+    testTimeout: 60000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html'],

@@ -15,6 +15,7 @@ export interface ImportResult {
   row: number
   success: boolean
   documentId?: string
+  documentTitle?: string
   error?: string
   skipped?: boolean
 }
@@ -36,31 +37,6 @@ interface ReferenceCache {
 }
 
 /**
- * Fields to check for duplicates (in order of priority)
- */
-const DUPLICATE_CHECK_FIELDS = ['_id', 'slug.current', 'slug', 'email', 'name', 'title', 'sku']
-
-/**
- * Find a unique field in the document to use for duplicate checking
- */
-function findUniqueField(document: TransformedDocument): {field: string; value: string} | null {
-  for (const field of DUPLICATE_CHECK_FIELDS) {
-    if (field === 'slug.current' && document.slug && typeof document.slug === 'object') {
-      const slugObj = document.slug as {current?: string}
-      if (slugObj.current) {
-        return {field: 'slug.current', value: slugObj.current}
-      }
-    } else if (field in document && document[field]) {
-      const value = document[field]
-      if (typeof value === 'string') {
-        return {field, value}
-      }
-    }
-  }
-  return null
-}
-
-/**
  * Import transformed documents into Sanity
  */
 export async function importDocuments(
@@ -71,12 +47,61 @@ export async function importDocuments(
   const results: ImportResult[] = []
   const referenceCache: ReferenceCache = {}
 
-  let created = 0
-  let updated = 0
-  let skipped = 0
-  let failed = 0
+  // Use an object for counters to avoid closure issues in loop
+  const counters = {
+    created: 0,
+    updated: 0,
+    skipped: 0,
+    failed: 0,
+  }
 
   const total = transformResults.length
+
+  /**
+   * Process a single transform result and update counters
+   */
+  async function processResult(result: TransformResult, rowIndex: number): Promise<ImportResult> {
+    // Skip rows that failed transformation
+    if (!result.success || !result.document) {
+      counters.failed++
+      return {
+        row: rowIndex,
+        success: false,
+        error: result.errors.join('; ') || 'Transformation failed',
+      }
+    }
+
+    try {
+      const importResult = await importSingleDocument(
+        result.document,
+        rowIndex,
+        duplicateStrategy,
+        client,
+        referenceCache,
+      )
+
+      if (importResult.skipped) {
+        counters.skipped++
+      } else if (importResult.success) {
+        if (result.document._id) {
+          counters.updated++
+        } else {
+          counters.created++
+        }
+      } else {
+        counters.failed++
+      }
+
+      return importResult
+    } catch (err) {
+      counters.failed++
+      return {
+        row: rowIndex,
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error',
+      }
+    }
+  }
 
   // Process in batches
   for (let i = 0; i < transformResults.length; i += batchSize) {
@@ -84,50 +109,7 @@ export async function importDocuments(
 
     // Process batch in parallel
     const batchResults = await Promise.all(
-      batch.map(async (result, batchIndex) => {
-        const rowIndex = i + batchIndex
-
-        // Skip rows that failed transformation
-        if (!result.success || !result.document) {
-          failed++
-          return {
-            row: rowIndex,
-            success: false,
-            error: result.errors.join('; ') || 'Transformation failed',
-          }
-        }
-
-        try {
-          const importResult = await importSingleDocument(
-            result.document,
-            rowIndex,
-            duplicateStrategy,
-            client,
-            referenceCache,
-          )
-
-          if (importResult.skipped) {
-            skipped++
-          } else if (importResult.success) {
-            if (result.document._id) {
-              updated++
-            } else {
-              created++
-            }
-          } else {
-            failed++
-          }
-
-          return importResult
-        } catch (err) {
-          failed++
-          return {
-            row: rowIndex,
-            success: false,
-            error: err instanceof Error ? err.message : 'Unknown error',
-          }
-        }
-      }),
+      batch.map((result, batchIndex) => processResult(result, i + batchIndex)),
     )
 
     results.push(...batchResults)
@@ -140,12 +122,31 @@ export async function importDocuments(
 
   return {
     total,
-    created,
-    updated,
-    skipped,
-    failed,
+    created: counters.created,
+    updated: counters.updated,
+    skipped: counters.skipped,
+    failed: counters.failed,
     results,
   }
+}
+
+/**
+ * Extract a display title from a document
+ */
+function extractDocumentTitle(document: TransformedDocument): string | undefined {
+  // Common title field names in order of preference
+  const titleFields = ['title', 'name', 'headline', 'label', 'heading', 'subject']
+
+  for (const field of titleFields) {
+    const value = document[field]
+    if (typeof value === 'string' && value.trim()) {
+      // Truncate long titles
+      const title = value.trim()
+      return title.length > 50 ? `${title.substring(0, 47)}...` : title
+    }
+  }
+
+  return undefined
 }
 
 /**
@@ -160,65 +161,63 @@ async function importSingleDocument(
 ): Promise<ImportResult> {
   // Resolve any pending references
   const resolvedDoc = await resolveReferences(document, client, referenceCache)
-  const docType = resolvedDoc._type as string
 
-  // Find unique field for duplicate checking
-  const uniqueField = findUniqueField(resolvedDoc)
+  // Extract title for display
+  const documentTitle = extractDocumentTitle(resolvedDoc)
 
-  // Check for existing document
-  let existingId: string | null = null
-
+  // Handle duplicate strategy
   if (document._id) {
     // Document has explicit ID
     const existing = await client.getDocument(document._id as string)
+
     if (existing) {
-      existingId = document._id as string
-    }
-  } else if (uniqueField && duplicateStrategy !== 'create') {
-    // Query for existing document by unique field
-    const query = `*[_type == $type && ${uniqueField.field} == $value][0]._id`
-    existingId = await client.fetch<string | null>(query, {
-      type: docType,
-      value: uniqueField.value,
-    })
-  }
-
-  // Handle based on duplicate strategy
-  if (existingId) {
-    switch (duplicateStrategy) {
-      case 'skip':
-        return {
-          row: rowIndex,
-          success: true,
-          documentId: existingId,
-          skipped: true,
+      switch (duplicateStrategy) {
+        case 'skip':
+          return {
+            row: rowIndex,
+            success: true,
+            documentId: document._id as string,
+            documentTitle,
+            skipped: true,
+          }
+        case 'update': {
+          // Update existing document
+          const updated = await client
+            .patch(document._id as string)
+            .set(resolvedDoc)
+            .commit()
+          return {
+            row: rowIndex,
+            success: true,
+            documentId: updated._id,
+            documentTitle,
+          }
         }
-      case 'update': {
-        // Update existing document - remove _id and _type for patch
-        const {_id: _updateId, _type: _updateType, ...updateFields} = resolvedDoc
-        const updated = await client.patch(existingId).set(updateFields).commit()
-        return {
-          row: rowIndex,
-          success: true,
-          documentId: updated._id,
+        case 'create': {
+          // Create with new ID
+          delete resolvedDoc._id
+          const newDoc = await client.create(resolvedDoc)
+          return {
+            row: rowIndex,
+            success: true,
+            documentId: newDoc._id,
+            documentTitle,
+          }
         }
+        default:
+          // Fall through to create new document
+          break
       }
-      case 'create':
-        // Create with new ID (fall through to create)
-        break
-      default:
-        // Unknown strategy, fall through to create
-        break
     }
   }
 
-  // Create new document - remove _id to let Sanity generate it
-  const {_id: _createId, ...createFields} = resolvedDoc
-  const created = await client.create(createFields)
+  // Create new document
+  const created = await client.create(resolvedDoc)
   return {
     row: rowIndex,
     success: true,
     documentId: created._id,
+    documentTitle,
   }
 }
 

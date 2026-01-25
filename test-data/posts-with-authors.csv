@@ -1,0 +1,9 @@
+title,slug,excerpt,author,publishedAt,tags
+Getting Started with TypeScript,typescript-intro,"A beginner's guide to TypeScript for JavaScript developers.",sarah@example.com,2024-01-10,"typescript,javascript,beginner"
+React Hooks Deep Dive,react-hooks-deep-dive,"Understanding useState, useEffect, and custom hooks in React.",michael@example.com,2024-01-18,"react,hooks,javascript"
+CSS Grid Layout Mastery,css-grid-mastery,"Master CSS Grid with practical examples and responsive patterns.",emily@example.com,2024-01-25,"css,layout,responsive"
+Docker for Developers,docker-developers,"Containerize your applications with Docker for consistent development environments.",james@example.com,2024-02-02,"docker,devops,containers"
+Building Design Systems,design-systems,"Create scalable design systems that bridge design and development.",emily@example.com,2024-02-10,"design,systems,ui"
+GraphQL vs REST,graphql-vs-rest,"Comparing GraphQL and REST APIs: when to use each approach.",michael@example.com,2024-02-18,"graphql,rest,api"
+Agile Product Development,agile-product-dev,"Best practices for agile product development in modern teams.",amanda@example.com,2024-02-25,"agile,product,management"
+Node.js Performance Tips,nodejs-performance,"Optimize your Node.js applications for better performance.",sarah@example.com,2024-03-05,"nodejs,performance,backend"

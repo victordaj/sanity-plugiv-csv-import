@@ -220,13 +220,67 @@ export function Wizard({documentTypes, schema}: WizardProps) {
     return steps.indexOf(step)
   }
 
-  const isStepAccessible = (step: WizardStep): boolean => {
-    const currentIndex = getStepIndex(currentStep)
-    const stepIndex = getStepIndex(step)
-    return stepIndex <= currentIndex
-  }
+  const isStepAccessible = useCallback(
+    (step: WizardStep): boolean => {
+      const currentIndex = getStepIndex(currentStep)
+      const stepIndex = getStepIndex(step)
+      return stepIndex <= currentIndex
+    },
+    [currentStep],
+  )
 
   const canProceedFromValidation = validationResult && validationResult.validRowCount > 0
+
+  // Tab navigation handlers - memoized to avoid arrow functions in JSX
+  const handleSelectTabClick = useCallback(() => {
+    if (isStepAccessible('select')) setCurrentStep('select')
+  }, [isStepAccessible])
+
+  const handleReferencesTabClick = useCallback(() => {
+    if (isStepAccessible('references')) setCurrentStep('references')
+  }, [isStepAccessible])
+
+  const handleImagesTabClick = useCallback(() => {
+    if (isStepAccessible('images')) setCurrentStep('images')
+  }, [isStepAccessible])
+
+  const handleUploadTabClick = useCallback(() => {
+    if (isStepAccessible('upload')) setCurrentStep('upload')
+  }, [isStepAccessible])
+
+  const handleValidateTabClick = useCallback(() => {
+    if (isStepAccessible('validate')) setCurrentStep('validate')
+  }, [isStepAccessible])
+
+  const handleImportTabClick = useCallback(() => {
+    if (isStepAccessible('import')) setCurrentStep('import')
+  }, [isStepAccessible])
+
+  // Back button handlers
+  const handleBackToSelect = useCallback(() => setCurrentStep('select'), [])
+  const handleBackToUpload = useCallback(() => setCurrentStep('upload'), [])
+
+  const handleBackFromImages = useCallback(() => {
+    if (hasReferenceFields(schemaFields)) {
+      setCurrentStep('references')
+    } else {
+      setCurrentStep('select')
+    }
+  }, [schemaFields])
+
+  const handleBackFromUpload = useCallback(() => {
+    if (hasImageFields(schemaFields)) {
+      setCurrentStep('images')
+    } else if (hasReferenceFields(schemaFields)) {
+      setCurrentStep('references')
+    } else {
+      setCurrentStep('select')
+    }
+  }, [schemaFields])
+
+  const handleContinueFromReferences = useCallback(() => {
+    handleReferencesConfigured(referenceConfig)
+  }, [handleReferencesConfigured, referenceConfig])
 
   return (
     <Card padding={4} radius={2} shadow={1}>
@@ -237,7 +291,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="select-panel"
             id="select-tab"
             label="1. Select Type"
-            onClick={() => isStepAccessible('select') && setCurrentStep('select')}
+            onClick={handleSelectTabClick}
             selected={currentStep === 'select'}
             disabled={!isStepAccessible('select')}
           />
@@ -245,7 +299,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="references-panel"
             id="references-tab"
             label="2. References"
-            onClick={() => isStepAccessible('references') && setCurrentStep('references')}
+            onClick={handleReferencesTabClick}
             selected={currentStep === 'references'}
             disabled={!isStepAccessible('references') || !hasReferenceFields(schemaFields)}
           />
@@ -253,7 +307,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="images-panel"
             id="images-tab"
             label="3. Images"
-            onClick={() => isStepAccessible('images') && setCurrentStep('images')}
+            onClick={handleImagesTabClick}
             selected={currentStep === 'images'}
             disabled={!isStepAccessible('images') || !hasImageFields(schemaFields)}
           />
@@ -261,7 +315,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="upload-panel"
             id="upload-tab"
             label="4. Upload CSV"
-            onClick={() => isStepAccessible('upload') && setCurrentStep('upload')}
+            onClick={handleUploadTabClick}
             selected={currentStep === 'upload'}
             disabled={!isStepAccessible('upload')}
           />
@@ -269,7 +323,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="validate-panel"
             id="validate-tab"
             label="5. Validate"
-            onClick={() => isStepAccessible('validate') && setCurrentStep('validate')}
+            onClick={handleValidateTabClick}
             selected={currentStep === 'validate'}
             disabled={!isStepAccessible('validate')}
           />
@@ -277,7 +331,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
             aria-controls="import-panel"
             id="import-tab"
             label="6. Import"
-            onClick={() => isStepAccessible('import') && setCurrentStep('import')}
+            onClick={handleImportTabClick}
             selected={currentStep === 'import'}
             disabled={!isStepAccessible('import')}
           />
@@ -307,12 +361,8 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   onConfigured={handleReferencesConfigured}
                 />
                 <Flex justify="flex-end" gap={3}>
-                  <Button text="Back" mode="ghost" onClick={() => setCurrentStep('select')} />
-                  <Button
-                    text="Continue"
-                    tone="primary"
-                    onClick={() => handleReferencesConfigured(referenceConfig)}
-                  />
+                  <Button text="Back" mode="ghost" onClick={handleBackToSelect} />
+                  <Button text="Continue" tone="primary" onClick={handleContinueFromReferences} />
                 </Flex>
               </Stack>
             </TabPanel>
@@ -327,15 +377,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   onImagesUploaded={handleImagesUploaded}
                 />
                 <Flex justify="flex-end" gap={3}>
-                  <Button
-                    text="Back"
-                    mode="ghost"
-                    onClick={() =>
-                      hasReferenceFields(schemaFields)
-                        ? setCurrentStep('references')
-                        : setCurrentStep('select')
-                    }
-                  />
+                  <Button text="Back" mode="ghost" onClick={handleBackFromImages} />
                 </Flex>
               </Stack>
             </TabPanel>
@@ -347,19 +389,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
               <Stack space={4}>
                 <CsvUploader schemaFields={schemaFields} onCsvParsed={handleCsvParsed} />
                 <Flex justify="flex-start">
-                  <Button
-                    text="Back"
-                    mode="ghost"
-                    onClick={() => {
-                      if (hasImageFields(schemaFields)) {
-                        setCurrentStep('images')
-                      } else if (hasReferenceFields(schemaFields)) {
-                        setCurrentStep('references')
-                      } else {
-                        setCurrentStep('select')
-                      }
-                    }}
-                  />
+                  <Button text="Back" mode="ghost" onClick={handleBackFromUpload} />
                 </Flex>
               </Stack>
             </TabPanel>
@@ -376,8 +406,6 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                   totalRows={csvData.rows.length}
                   validRows={validationResult.validRowCount}
                   issues={validationIssues}
-                  onContinue={handleStartImport}
-                  onCancel={() => setCurrentStep('upload')}
                 />
 
                 <DuplicateOptions
@@ -387,7 +415,7 @@ export function Wizard({documentTypes, schema}: WizardProps) {
                 />
 
                 <Flex justify="flex-end" gap={3}>
-                  <Button text="Back" mode="ghost" onClick={() => setCurrentStep('upload')} />
+                  <Button text="Back" mode="ghost" onClick={handleBackToUpload} />
                   <Button
                     text={`Import ${validationResult.validRowCount} Documents`}
                     tone="positive"

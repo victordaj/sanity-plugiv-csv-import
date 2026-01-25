@@ -1,0 +1,51 @@
+id,title,category,status,priority,assignee,createdAt,description
+1,Update homepage hero section,design,in-progress,high,Emily,2024-01-02,Redesign the hero section with new branding guidelines
+2,Fix mobile navigation bug,development,open,critical,Michael,2024-01-03,Navigation menu doesn't close on mobile after clicking a link
+3,Add search functionality,development,open,high,Sarah,2024-01-04,Implement full-text search across all content types
+4,Create onboarding flow,design,completed,medium,Emily,2024-01-05,Design and implement new user onboarding experience
+5,Optimize image loading,development,in-progress,high,Michael,2024-01-06,Implement lazy loading and responsive images
+6,Write API documentation,content,open,medium,Sarah,2024-01-07,Document all API endpoints with examples
+7,Update privacy policy,content,completed,low,Amanda,2024-01-08,Review and update privacy policy for new regulations
+8,Add dark mode support,design,open,medium,Emily,2024-01-09,Implement dark mode theme toggle
+9,Fix form validation,development,completed,high,Michael,2024-01-10,Email validation not working correctly
+10,Create newsletter template,design,in-progress,medium,Emily,2024-01-11,Design responsive email template for newsletters
+11,Implement caching layer,development,open,high,James,2024-01-12,Add Redis caching for API responses
+12,Update product images,content,completed,low,Amanda,2024-01-13,Replace placeholder images with actual product photos
+13,Add analytics tracking,development,in-progress,medium,James,2024-01-14,Implement Google Analytics 4 tracking
+14,Review content strategy,content,open,medium,Amanda,2024-01-15,Audit existing content and plan improvements
+15,Fix pagination bug,development,completed,high,Sarah,2024-01-16,Pagination shows wrong total count
+16,Design error pages,design,completed,low,Emily,2024-01-17,Create custom 404 and 500 error pages
+17,Implement webhooks,development,open,high,James,2024-01-18,Add webhook notifications for content changes
+18,Update meta descriptions,content,in-progress,medium,Amanda,2024-01-19,Improve SEO meta descriptions for all pages
+19,Add social sharing,development,completed,medium,Michael,2024-01-20,Implement social media sharing buttons
+20,Create style guide,design,in-progress,high,Emily,2024-01-21,Document design system components and usage
+21,Fix date formatting,development,completed,low,Sarah,2024-01-22,Dates not displaying correctly in different timezones
+22,Write blog posts,content,open,medium,Amanda,2024-01-23,Create 5 new blog posts for launch
+23,Add breadcrumbs,development,completed,low,Michael,2024-01-24,Implement breadcrumb navigation
+24,Review accessibility,design,in-progress,high,Emily,2024-01-25,Audit and fix accessibility issues
+25,Implement rate limiting,development,open,high,James,2024-01-26,Add rate limiting to API endpoints
+26,Update footer links,content,completed,low,Amanda,2024-01-27,Update footer with new page links
+27,Add print styles,design,completed,low,Emily,2024-01-28,Create print-friendly CSS styles
+28,Fix memory leak,development,in-progress,critical,James,2024-01-29,Server memory usage increases over time
+29,Create FAQ section,content,open,medium,Sarah,2024-01-30,Compile and organize frequently asked questions
+30,Implement SSO,development,open,high,James,2024-01-31,Add single sign-on with OAuth providers
+31,Design icons,design,completed,medium,Emily,2024-02-01,Create custom icon set for the application
+32,Fix Safari bug,development,in-progress,high,Michael,2024-02-02,Layout breaks in Safari browser
+33,Update terms of service,content,completed,medium,Amanda,2024-02-03,Review and update terms of service
+34,Add language selector,development,open,medium,Sarah,2024-02-04,Implement multi-language support
+35,Create infographics,design,in-progress,low,Emily,2024-02-05,Design infographics for data visualization
+36,Optimize database queries,development,open,high,James,2024-02-06,Slow queries identified in performance monitoring
+37,Write case studies,content,in-progress,medium,Amanda,2024-02-07,Document customer success stories
+38,Add keyboard shortcuts,development,completed,low,Michael,2024-02-08,Implement keyboard navigation for power users
+39,Review color contrast,design,completed,high,Emily,2024-02-09,Ensure all text meets WCAG contrast requirements
+40,Fix email delivery,development,in-progress,critical,James,2024-02-10,Some users not receiving notification emails
+41,Update sitemap,content,completed,low,Sarah,2024-02-11,Generate and submit updated sitemap
+42,Add loading states,design,in-progress,medium,Emily,2024-02-12,Design skeleton loading states for content
+43,Implement file upload,development,open,high,Michael,2024-02-13,Add file upload functionality with drag and drop
+44,Create video tutorials,content,open,medium,Amanda,2024-02-14,Record how-to video tutorials for features
+45,Fix scroll position,development,completed,medium,Sarah,2024-02-15,Page doesn't restore scroll position on navigation
+46,Design empty states,design,completed,medium,Emily,2024-02-16,Create illustrations for empty content states
+47,Add export feature,development,in-progress,high,James,2024-02-17,Allow users to export data in CSV and JSON
+48,Update help documentation,content,in-progress,medium,Amanda,2024-02-18,Revise and expand help documentation
+49,Implement undo/redo,development,open,medium,Michael,2024-02-19,Add undo/redo functionality for editors
+50,Review performance,development,open,high,James,2024-02-20,Comprehensive performance audit and optimization

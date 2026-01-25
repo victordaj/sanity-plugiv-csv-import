@@ -7,7 +7,8 @@
       "Bash(pnpm test:*)",
       "Bash(pnpm build:*)",
       "Bash(cat:*)",
-      "Bash(pnpm vitest:*)"
+      "Bash(pnpm vitest:*)",
+      "Bash(npx vitest:*)"
     ],
     "deny": [],
     "ask": []

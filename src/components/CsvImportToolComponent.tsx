@@ -1,10 +1,9 @@
 import {Box, Card, Container, Heading, Stack, Text} from '@sanity/ui'
-import type {JSX} from 'react'
 import {useSchema} from 'sanity'
 
 import {Wizard} from './Wizard'
 
-export function CsvImportToolComponent(): JSX.Element {
+export function CsvImportToolComponent() {
   const schema = useSchema()
 
   // Get all document types from schema
@@ -21,16 +20,17 @@ export function CsvImportToolComponent(): JSX.Element {
     <Box padding={4} sizing="border">
       <Container width={2}>
         <Stack space={5}>
-          <Box paddingY={2}>
-            <Stack space={2}>
-              <Heading as="h1" size={4} style={{fontWeight: 700}}>
-                Bulk Import
+          <Card padding={4} radius={2} shadow={1}>
+            <Stack space={4}>
+              <Heading as="h1" size={3}>
+                CSV Import
               </Heading>
-              <Text size={2} muted>
-                From spreadsheet to Sanity in seconds
+              <Text muted>
+                Import data from CSV files into your Sanity documents. Select a document type,
+                download a template, fill it with your data, and import.
               </Text>
             </Stack>
-          </Box>
+          </Card>
 
           {documentTypes.length === 0 ? (
             <Card padding={4} radius={2} tone="caution">

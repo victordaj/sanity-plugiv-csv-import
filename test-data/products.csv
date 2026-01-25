@@ -1,0 +1,11 @@
+name,slug,description,price,sku,image,category,inStock
+Wireless Bluetooth Headphones,wireless-headphones,"Premium over-ear headphones with active noise cancellation and 30-hour battery life.",199.99,WBH-001,headphones.jpg,electronics,true
+Organic Cotton T-Shirt,organic-tshirt,"Sustainable and comfortable t-shirt made from 100% organic cotton.",34.99,OCT-001,tshirt.jpg,clothing,true
+Stainless Steel Water Bottle,steel-bottle,"Double-walled insulated bottle keeps drinks cold for 24 hours or hot for 12 hours.",29.99,SSB-001,bottle.jpg,accessories,true
+Mechanical Keyboard,mech-keyboard,"RGB backlit mechanical keyboard with Cherry MX switches for ultimate typing experience.",149.99,MKB-001,keyboard.jpg,electronics,true
+Yoga Mat Premium,yoga-mat-premium,"Extra thick eco-friendly yoga mat with alignment lines and carrying strap.",59.99,YMP-001,yogamat.jpg,fitness,true
+Ceramic Coffee Mug Set,ceramic-mugs,"Set of 4 handcrafted ceramic mugs in assorted colors.",44.99,CCM-004,mugs.jpg,kitchen,false
+Leather Wallet,leather-wallet,"Genuine leather bifold wallet with RFID blocking technology.",79.99,LW-001,wallet.jpg,accessories,true
+Running Shoes Pro,running-shoes,"Lightweight running shoes with responsive cushioning and breathable mesh.",129.99,RSP-001,shoes.jpg,fitness,true
+Smart Watch Series X,smartwatch-x,"Advanced fitness tracking, heart rate monitoring, and 7-day battery life.",299.99,SWX-001,smartwatch.jpg,electronics,false
+Bamboo Cutting Board,bamboo-board,"Large bamboo cutting board with juice groove and carrying handles.",39.99,BCB-001,cuttingboard.jpg,kitchen,true

@@ -1,6 +1,7 @@
 import {
   CheckmarkCircleIcon,
   CopyIcon,
+  SpinnerIcon,
   TrashIcon,
   UploadIcon,
   WarningOutlineIcon,
@@ -22,6 +23,13 @@ export interface DuplicateInfo {
   existingIndex: number
 }
 
+export interface PendingUpload {
+  filename: string
+  previewUrl: string
+  status: 'pending' | 'uploading' | 'done' | 'error'
+  error?: string
+}
+
 export interface ImageUploaderProps {
   schemaFields: SchemaField[]
   onImagesUploaded: (images: UploadedImage[]) => void
@@ -34,6 +42,7 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
   const [error, setError] = useState<string | null>(null)
   const [duplicates, setDuplicates] = useState<DuplicateInfo[]>([])
   const [skippedDuplicates, setSkippedDuplicates] = useState<string[]>([])
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([])
 
   const imageFields = getImageFields(schemaFields)
 
@@ -98,20 +107,70 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
         return
       }
 
+      // Create preview thumbnails for all files before uploading
+      const previews: PendingUpload[] = await Promise.all(
+        newFiles.map(
+          (file) =>
+            new Promise<PendingUpload>((resolve) => {
+              const reader = new FileReader()
+              reader.onload = (e) => {
+                resolve({
+                  filename: file.name,
+                  previewUrl: e.target?.result as string,
+                  status: 'pending',
+                })
+              }
+              reader.onerror = () => {
+                resolve({
+                  filename: file.name,
+                  previewUrl: '',
+                  status: 'pending',
+                })
+              }
+              reader.readAsDataURL(file)
+            }),
+        ),
+      )
+
+      setPendingUploads(previews)
+
       const newImages: UploadedImage[] = []
 
       try {
-        for (const file of newFiles) {
-          // Upload to Sanity assets
-          const asset = await client.assets.upload('image', file, {
-            filename: file.name,
-          })
+        for (let i = 0; i < newFiles.length; i++) {
+          const file = newFiles[i]
 
-          newImages.push({
-            filename: file.name,
-            assetId: asset._id,
-            url: asset.url,
-          })
+          // Update status to uploading
+          setPendingUploads((prev) =>
+            prev.map((p, idx) => (idx === i ? {...p, status: 'uploading'} : p)),
+          )
+
+          try {
+            // Upload to Sanity assets
+            const asset = await client.assets.upload('image', file, {
+              filename: file.name,
+            })
+
+            newImages.push({
+              filename: file.name,
+              assetId: asset._id,
+              url: asset.url,
+            })
+
+            // Update status to done
+            setPendingUploads((prev) =>
+              prev.map((p, idx) => (idx === i ? {...p, status: 'done'} : p)),
+            )
+          } catch (err) {
+            // Update status to error for this specific file
+            setPendingUploads((prev) =>
+              prev.map((p, idx) =>
+                idx === i
+                  ? {...p, status: 'error', error: err instanceof Error ? err.message : 'Failed'}
+                  : p,
+              ),
+            )
+          }
         }
 
         setUploadedImages((prev) => [...prev, ...newImages])
@@ -119,6 +178,10 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
         setError(err instanceof Error ? err.message : 'Failed to upload images')
       } finally {
         setIsUploading(false)
+        // Clear pending uploads after a short delay to show completion
+        setTimeout(() => {
+          setPendingUploads([])
+        }, 1500)
         // Reset input
         event.target.value = ''
       }
@@ -153,8 +216,8 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
           <Text weight="semibold">Upload Images</Text>
           <Text muted size={1}>
             Upload images that will be referenced in your CSV. Name your files to match the values
-            you'll use in the CSV (e.g., if CSV has "hero.jpg" in the image column, upload a file
-            named "hero.jpg").
+            you&apos;ll use in the CSV (e.g., if CSV has &quot;hero.jpg&quot; in the image column,
+            upload a file named &quot;hero.jpg&quot;).
           </Text>
         </Stack>
       </Card>
@@ -219,6 +282,134 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
             <Card padding={3} radius={2} tone="critical">
               <Text size={1}>{error}</Text>
             </Card>
+          )}
+
+          {/* Pending Uploads with Thumbnails */}
+          {pendingUploads.length > 0 && (
+            <Stack space={3}>
+              <Flex align="center" justify="space-between">
+                <Text weight="semibold" size={1}>
+                  Uploading...
+                </Text>
+                <Badge tone="caution">
+                  {pendingUploads.filter((p) => p.status === 'done').length} /{' '}
+                  {pendingUploads.length}
+                </Badge>
+              </Flex>
+              <Grid columns={4} gap={2}>
+                {pendingUploads.map((pending) => {
+                  const getTone = () => {
+                    if (pending.status === 'error') return 'critical'
+                    if (pending.status === 'done') return 'positive'
+                    return 'default'
+                  }
+                  return (
+                    <Card key={pending.filename} padding={2} radius={2} shadow={1} tone={getTone()}>
+                      <Stack space={2}>
+                        <Box
+                          style={{
+                            position: 'relative',
+                            width: '100%',
+                            height: '60px',
+                            backgroundImage: pending.previewUrl
+                              ? `url(${pending.previewUrl})`
+                              : undefined,
+                            backgroundColor: pending.previewUrl
+                              ? undefined
+                              : 'var(--card-bg2-color)',
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {/* Overlay for uploading/pending state */}
+                          {(pending.status === 'pending' || pending.status === 'uploading') && (
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                              }}
+                            >
+                              {pending.status === 'uploading' && (
+                                <SpinnerIcon
+                                  style={{
+                                    color: 'white',
+                                    fontSize: '24px',
+                                    animation: 'spin 1s linear infinite',
+                                  }}
+                                />
+                              )}
+                            </Box>
+                          )}
+                          {/* Checkmark for completed */}
+                          {pending.status === 'done' && (
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: '4px',
+                                right: '4px',
+                                backgroundColor: 'var(--card-positive-bg-color)',
+                                borderRadius: '50%',
+                                padding: '2px',
+                              }}
+                            >
+                              <CheckmarkCircleIcon
+                                style={{color: 'var(--card-positive-fg-color)'}}
+                              />
+                            </Box>
+                          )}
+                          {/* Error indicator */}
+                          {pending.status === 'error' && (
+                            <Box
+                              style={{
+                                position: 'absolute',
+                                top: '4px',
+                                right: '4px',
+                                backgroundColor: 'var(--card-critical-bg-color)',
+                                borderRadius: '50%',
+                                padding: '2px',
+                              }}
+                            >
+                              <WarningOutlineIcon
+                                style={{color: 'var(--card-critical-fg-color)'}}
+                              />
+                            </Box>
+                          )}
+                        </Box>
+                        <Text
+                          size={0}
+                          muted={pending.status === 'pending'}
+                          style={{
+                            wordBreak: 'break-all',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {pending.filename}
+                        </Text>
+                      </Stack>
+                    </Card>
+                  )
+                })}
+              </Grid>
+              <style>
+                {`
+                  @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                  }
+                `}
+              </style>
+            </Stack>
           )}
 
           {/* Duplicate Warning */}

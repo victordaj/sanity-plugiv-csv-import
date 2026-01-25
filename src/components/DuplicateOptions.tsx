@@ -1,6 +1,4 @@
 import {Box, Card, Flex, Radio, Stack, Text} from '@sanity/ui'
-import type {JSX} from 'react'
-import {useCallback} from 'react'
 
 export type DuplicateStrategy = 'skip' | 'update' | 'create'
 
@@ -40,23 +38,14 @@ export function DuplicateOptions({
   duplicateCount,
   onStrategyChange,
   selectedStrategy,
-}: DuplicateOptionsProps): JSX.Element {
-  const handleStrategyClick = useCallback(
-    (strategy: DuplicateStrategy) => {
-      onStrategyChange(strategy)
-    },
-    [onStrategyChange],
-  )
-
-  const pluralSuffix = duplicateCount === 1 ? '' : 's'
-
+}: DuplicateOptionsProps) {
   return (
     <Stack space={4}>
       {duplicateCount > 0 && (
         <Card padding={4} radius={2} tone="caution">
           <Stack space={2}>
             <Text weight="semibold">
-              {duplicateCount} potential duplicate{pluralSuffix} found
+              {duplicateCount} potential duplicate{duplicateCount === 1 ? '' : 's'} found
             </Text>
             <Text muted size={1}>
               Some rows in your CSV may match existing documents. Choose how to handle them.
@@ -77,13 +66,13 @@ export function DuplicateOptions({
                 radius={2}
                 tone={selectedStrategy === strategy.value ? 'primary' : 'default'}
                 style={{cursor: 'pointer'}}
-                onClick={handleStrategyClick.bind(null, strategy.value)}
+                onClick={() => onStrategyChange(strategy.value)}
               >
                 <Flex gap={3}>
                   <Box style={{paddingTop: '2px'}}>
                     <Radio
                       checked={selectedStrategy === strategy.value}
-                      onChange={handleStrategyClick.bind(null, strategy.value)}
+                      onChange={() => onStrategyChange(strategy.value)}
                     />
                   </Box>
                   <Stack space={1}>

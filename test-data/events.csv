@@ -1,0 +1,9 @@
+name,slug,description,startDate,endDate,location,capacity,registrationUrl,featured
+Tech Conference 2024,tech-conf-2024,"Annual technology conference featuring talks on AI, cloud computing, and developer tools.",2024-06-15,2024-06-17,San Francisco Convention Center,5000,https://techconf2024.example.com/register,true
+Design Systems Workshop,design-workshop,"Hands-on workshop for building and maintaining design systems at scale.",2024-04-20,2024-04-20,Online - Zoom,100,https://designworkshop.example.com,false
+JavaScript Meetup,js-meetup-apr,"Monthly JavaScript community meetup with lightning talks and networking.",2024-04-25,2024-04-25,WeWork Downtown,50,https://meetup.com/js-group,false
+React Summit,react-summit-2024,"The largest React conference with workshops, talks, and hands-on sessions.",2024-07-10,2024-07-12,Amsterdam RAI,3000,https://reactsummit.com,true
+GraphQL Day,graphql-day,"One-day conference dedicated to GraphQL and API development.",2024-05-15,2024-05-15,Berlin Tech Hub,400,https://graphqlday.example.com,false
+UX Research Bootcamp,ux-bootcamp,"Intensive 3-day bootcamp covering UX research methods and tools.",2024-05-20,2024-05-22,New York Design Center,30,https://uxbootcamp.example.com,true
+Startup Pitch Night,pitch-night-may,"Monthly startup pitch competition with investor judges.",2024-05-28,2024-05-28,Innovation Hub,200,https://pitchnight.example.com,false
+DevOps Summit,devops-summit-2024,"Learn best practices in CI/CD, containerization, and infrastructure.",2024-08-05,2024-08-07,Seattle Convention Center,2000,https://devopssummit.example.com,true

@@ -199,40 +199,58 @@ function isArrayOfBlocks(field: ObjectField, _schema: Schema): boolean {
   return false
 }
 
+/**
+ * Extract reference target type names from a field definition.
+ * Handles multiple formats:
+ * - Direct reference: { type: 'reference', to: [{type: 'person'}] }
+ * - Reference with name: { type: 'reference', to: [{name: 'person'}] }
+ * - String targets: { type: 'reference', to: ['person', 'organization'] }
+ * - Array of references: { type: 'array', of: [{type: 'reference', to: [...]}] }
+ */
 function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
   const type = field.type
+  const targets: string[] = []
 
-  // Direct reference field
-  if (typeof type === 'object' && type !== null && 'to' in type) {
-    const toTypes = (type as {to: unknown[]}).to
-    return toTypes
-      .map((to) => {
-        if (typeof to === 'object' && to !== null && 'type' in to) {
-          return (to as {type: string}).type
-        }
-        return null
-      })
-      .filter((t): t is string => t !== null)
-  }
-
-  // Array of references
-  if (typeof type === 'object' && type !== null && 'of' in type) {
-    const ofTypes = (type as {of: unknown[]}).of
-    const targets: string[] = []
-    for (const ofType of ofTypes) {
-      if (typeof ofType === 'object' && ofType !== null && 'to' in ofType) {
-        const toTypes = (ofType as {to: unknown[]}).to
-        for (const to of toTypes) {
-          if (typeof to === 'object' && to !== null && 'type' in to) {
-            targets.push((to as {type: string}).type)
-          }
+  /**
+   * Extract target names from a 'to' array
+   */
+  function extractFromTo(toTypes: unknown[]): void {
+    for (const to of toTypes) {
+      // Handle string targets: to: ['person', 'organization']
+      if (typeof to === 'string') {
+        targets.push(to)
+        continue
+      }
+      // Handle object targets with 'type' or 'name' property
+      if (typeof to === 'object' && to !== null) {
+        const toObj = to as {type?: string; name?: string}
+        if (toObj.type) {
+          targets.push(toObj.type)
+        } else if (toObj.name) {
+          targets.push(toObj.name)
         }
       }
     }
-    return targets
   }
 
-  return []
+  // Direct reference field: { type: 'reference', to: [...] }
+  if (typeof type === 'object' && type !== null && 'to' in type) {
+    const toTypes = (type as {to: unknown[]}).to
+    extractFromTo(toTypes)
+  }
+
+  // Array of references: { type: 'array', of: [{type: 'reference', to: [...]}] }
+  if (typeof type === 'object' && type !== null && 'of' in type) {
+    const ofTypes = (type as {of: unknown[]}).of
+    for (const ofType of ofTypes) {
+      if (typeof ofType === 'object' && ofType !== null && 'to' in ofType) {
+        const toTypes = (ofType as {to: unknown[]}).to
+        extractFromTo(toTypes)
+      }
+    }
+  }
+
+  return targets
 }
 
 function getArrayItemType(field: ObjectField, _schema: Schema): string {

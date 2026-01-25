@@ -1,0 +1,6 @@
+name,description,mainImage,thumbnailImage,galleryImages
+Product Alpha,First product with unique images,alpha-main.jpg,alpha-thumb.jpg,"alpha-1.jpg,alpha-2.jpg,alpha-3.jpg"
+Product Beta,Second product with some shared images,beta-main.jpg,alpha-thumb.jpg,"beta-1.jpg,alpha-2.jpg,beta-3.jpg"
+Product Gamma,Third product reusing main image,alpha-main.jpg,gamma-thumb.jpg,"gamma-1.jpg,gamma-2.jpg,alpha-3.jpg"
+Product Delta,Fourth product with all unique,delta-main.jpg,delta-thumb.jpg,"delta-1.jpg,delta-2.jpg,delta-3.jpg"
+Product Epsilon,Fifth product with mixed duplicates,beta-main.jpg,alpha-thumb.jpg,"alpha-1.jpg,beta-2.jpg,epsilon-3.jpg"

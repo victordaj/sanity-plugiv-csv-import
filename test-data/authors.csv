@@ -1,0 +1,6 @@
+name,email,bio,role,twitter
+Sarah Johnson,sarah@example.com,"Senior technical writer with 10 years of experience in developer documentation and tutorials.",Editor,@sarahjtech
+Michael Chen,michael@example.com,"Full-stack developer and open source contributor. Passionate about web performance.",Developer,@michaelcdev
+Emily Rodriguez,emily@example.com,"UX designer and content strategist. Believes in human-centered design principles.",Designer,@emilyux
+James Wilson,james@example.com,"DevOps engineer specializing in CI/CD pipelines and cloud infrastructure.",Engineer,@jameswilsondev
+Amanda Foster,amanda@example.com,"Product manager with background in both technical and creative fields.",Product Manager,@amandafoster

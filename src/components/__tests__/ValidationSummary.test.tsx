@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
 
-import {ValidationSummary, type ValidationIssue} from '../ValidationSummary'
+import {type ValidationIssue, ValidationSummary} from '../ValidationSummary'
 
 describe('ValidationSummary', () => {
   it('should export ValidationSummary component', () => {

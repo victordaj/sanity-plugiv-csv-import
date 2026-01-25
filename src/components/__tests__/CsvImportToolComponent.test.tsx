@@ -24,6 +24,6 @@ describe('CsvImportToolComponent', () => {
   it('should show welcome or import screen', () => {
     const {container} = render(<CsvImportToolComponent />)
     const text = container.textContent
-    expect(text).toContain('Bulk Import')
+    expect(text).toContain('CSV Import')
   })
 })
