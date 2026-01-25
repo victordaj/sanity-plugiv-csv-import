@@ -13,6 +13,7 @@ export interface SchemaField {
   isArray: boolean
   isReference: boolean
   isImage: boolean
+  isRichText: boolean // Portable Text / block content
   referenceTarget?: string[]
   referenceTo?: string // Single reference target for convenience
   fields?: SchemaField[]
@@ -103,6 +104,7 @@ function createSchemaField(
   const isArray = fieldType === 'array'
   const isReference = fieldType === 'reference' || isArrayOfReferences(field, schema)
   const isImage = fieldType === 'image' || isArrayOfImages(field, schema)
+  const isRichText = isArrayOfBlocks(field, schema)
 
   let referenceTarget: string[] | undefined
   if (isReference) {
@@ -126,6 +128,7 @@ function createSchemaField(
     isArray,
     isReference,
     isImage,
+    isRichText,
     referenceTarget,
     referenceTo: referenceTarget?.[0],
     of: arrayOf,
@@ -179,6 +182,23 @@ function isArrayOfImages(field: ObjectField, _schema: Schema): boolean {
   return false
 }
 
+/**
+ * Check if a field is an array of blocks (Portable Text / Rich Text)
+ */
+function isArrayOfBlocks(field: ObjectField, _schema: Schema): boolean {
+  const type = field.type
+  if (typeof type === 'object' && type !== null && 'of' in type) {
+    const ofTypes = (type as {of: unknown[]}).of
+    return ofTypes.some((ofType) => {
+      if (typeof ofType === 'object' && ofType !== null && 'type' in ofType) {
+        return (ofType as {type: string}).type === 'block'
+      }
+      return false
+    })
+  }
+  return false
+}
+
 function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
   const type = field.type
 
@@ -187,17 +207,8 @@ function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
     const toTypes = (type as {to: unknown[]}).to
     return toTypes
       .map((to) => {
-        // Could be {type: 'author'} or could be full schema object with {name: 'author'}
-        if (typeof to === 'object' && to !== null) {
-          if ('type' in to && typeof (to as {type: unknown}).type === 'string') {
-            return (to as {type: string}).type
-          }
-          if ('name' in to && typeof (to as {name: unknown}).name === 'string') {
-            return (to as {name: string}).name
-          }
-        }
-        if (typeof to === 'string') {
-          return to
+        if (typeof to === 'object' && to !== null && 'type' in to) {
+          return (to as {type: string}).type
         }
         return null
       })
@@ -212,14 +223,8 @@ function getReferenceTargets(field: ObjectField, _schema: Schema): string[] {
       if (typeof ofType === 'object' && ofType !== null && 'to' in ofType) {
         const toTypes = (ofType as {to: unknown[]}).to
         for (const to of toTypes) {
-          if (typeof to === 'object' && to !== null) {
-            if ('type' in to && typeof (to as {type: unknown}).type === 'string') {
-              targets.push((to as {type: string}).type)
-            } else if ('name' in to && typeof (to as {name: unknown}).name === 'string') {
-              targets.push((to as {name: string}).name)
-            }
-          } else if (typeof to === 'string') {
-            targets.push(to)
+          if (typeof to === 'object' && to !== null && 'type' in to) {
+            targets.push((to as {type: string}).type)
           }
         }
       }
@@ -295,4 +300,18 @@ export function getImageFields(fields: SchemaField[]): SchemaField[] {
  */
 export function getReferenceFields(fields: SchemaField[]): SchemaField[] {
   return fields.filter((field) => field.isReference)
+}
+
+/**
+ * Check if schema fields contain any rich text (Portable Text) fields
+ */
+export function hasRichTextFields(fields: SchemaField[]): boolean {
+  return fields.some((field) => field.isRichText)
+}
+
+/**
+ * Get rich text (Portable Text) fields from schema
+ */
+export function getRichTextFields(fields: SchemaField[]): SchemaField[] {
+  return fields.filter((field) => field.isRichText)
 }

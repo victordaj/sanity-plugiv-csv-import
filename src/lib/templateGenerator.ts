@@ -74,6 +74,8 @@ function createColumnConfig(
     if (field.isArray) {
       tip += ' (comma-separated for multiple)'
     }
+  } else if (field.isRichText) {
+    tip = `${requiredText}: Rich text - supports Markdown (**bold**, *italic*, [links](url), # headings)`
   } else if (field.isImage) {
     tip = `${requiredText}: Image filename (upload images first)`
   } else if (field.type === 'boolean') {
