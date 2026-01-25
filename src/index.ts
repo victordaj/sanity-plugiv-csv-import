@@ -1,6 +1,9 @@
 import {definePlugin} from 'sanity'
 
 import {CsvImportTool} from './tool/CsvImportTool'
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
 
 /**
  * Sanity CSV Import Plugin

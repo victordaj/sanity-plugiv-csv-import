@@ -20,12 +20,22 @@ export interface CsvParseResult {
   errors?: CsvParseError[]
 }
 
-const MAX_ROWS = 500
+export interface CsvParseOptions {
+  /** Maximum number of rows to process. Default: 500. Set to 0 for unlimited. */
+  maxRows?: number
+}
+
+/** Default maximum rows if not specified */
+const DEFAULT_MAX_ROWS = 500
 
 /**
  * Parse a CSV file and return structured data
+ * @param file - The CSV file to parse
+ * @param options - Optional parsing configuration
  */
-export function parseCsvFile(file: File): Promise<CsvParseResult> {
+export function parseCsvFile(file: File, options: CsvParseOptions = {}): Promise<CsvParseResult> {
+  const maxRows = options.maxRows ?? DEFAULT_MAX_ROWS
+
   return new Promise((resolve) => {
     Papa.parse(file, {
       header: true,
@@ -67,12 +77,12 @@ export function parseCsvFile(file: File): Promise<CsvParseResult> {
           }
         }
 
-        // Check row limit
-        if (rows.length > MAX_ROWS) {
+        // Check row limit (if maxRows > 0)
+        if (maxRows > 0 && rows.length > maxRows) {
           errors.push({
             type: 'RowLimit',
             code: 'TooManyRows',
-            message: `CSV has ${rows.length} rows, but the maximum allowed is ${MAX_ROWS}. Please split your data into smaller files.`,
+            message: `CSV has ${rows.length} rows, but the maximum allowed is ${maxRows}. Please split your data into smaller files.`,
           })
           resolve({success: false, errors})
           return
@@ -117,8 +127,12 @@ export function parseCsvFile(file: File): Promise<CsvParseResult> {
 
 /**
  * Parse a CSV string and return structured data
+ * @param csvContent - The CSV content as a string
+ * @param options - Optional parsing configuration
  */
-export function parseCsvString(csvContent: string): CsvParseResult {
+export function parseCsvString(csvContent: string, options: CsvParseOptions = {}): CsvParseResult {
+  const maxRows = options.maxRows ?? DEFAULT_MAX_ROWS
+
   const results = Papa.parse(csvContent, {
     header: true,
     skipEmptyLines: 'greedy',
@@ -155,11 +169,11 @@ export function parseCsvString(csvContent: string): CsvParseResult {
     }
   }
 
-  if (rows.length > MAX_ROWS) {
+  if (maxRows > 0 && rows.length > maxRows) {
     errors.push({
       type: 'RowLimit',
       code: 'TooManyRows',
-      message: `CSV has ${rows.length} rows, but the maximum allowed is ${MAX_ROWS}.`,
+      message: `CSV has ${rows.length} rows, but the maximum allowed is ${maxRows}.`,
     })
     return {success: false, errors}
   }

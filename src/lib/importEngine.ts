@@ -3,11 +3,33 @@ import {type SanityClient} from 'sanity'
 import {type DuplicateStrategy} from '../components/DuplicateOptions'
 import {type TransformedDocument, type TransformResult} from './documentTransformer'
 
+/**
+ * Debug mode flag - set to true to enable verbose logging
+ * In production, this should be false to avoid exposing internal structure
+ */
+const DEBUG_MODE = process.env.NODE_ENV === 'development'
+
+/**
+ * Pattern for validating GROQ field names to prevent injection attacks
+ * Only allows alphanumeric characters and underscores, starting with letter or underscore
+ */
+const SAFE_FIELD_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+/**
+ * Validate a field name is safe for use in GROQ queries
+ * Prevents GROQ injection attacks by ensuring field names match expected pattern
+ */
+function isValidFieldName(fieldName: string): boolean {
+  return SAFE_FIELD_PATTERN.test(fieldName)
+}
+
 export interface ImportOptions {
   client: SanityClient
   documentType: string
   duplicateStrategy: DuplicateStrategy
   batchSize?: number
+  /** Delay in milliseconds between batches to avoid rate limiting */
+  batchDelayMs?: number
   onProgress?: (processed: number, total: number) => void
 }
 
@@ -43,7 +65,7 @@ export async function importDocuments(
   transformResults: TransformResult[],
   options: ImportOptions,
 ): Promise<ImportSummary> {
-  const {client, duplicateStrategy, batchSize = 10, onProgress} = options
+  const {client, duplicateStrategy, batchSize = 10, batchDelayMs = 0, onProgress} = options
   const results: ImportResult[] = []
   const referenceCache: ReferenceCache = {}
 
@@ -103,7 +125,7 @@ export async function importDocuments(
     }
   }
 
-  // Process in batches
+  // Process in batches with optional rate limiting
   for (let i = 0; i < transformResults.length; i += batchSize) {
     const batch = transformResults.slice(i, Math.min(i + batchSize, transformResults.length))
 
@@ -117,6 +139,11 @@ export async function importDocuments(
     // Report progress
     if (onProgress) {
       onProgress(Math.min(i + batchSize, total), total)
+    }
+
+    // Rate limiting: delay between batches to avoid overwhelming the API
+    if (batchDelayMs > 0 && i + batchSize < transformResults.length) {
+      await new Promise((resolve) => setTimeout(resolve, batchDelayMs))
     }
   }
 
@@ -276,6 +303,7 @@ function isReferencePlaceholder(value: unknown): value is {_type: 'reference'; _
 
 /**
  * Resolve a single reference placeholder
+ * Includes GROQ injection protection by validating field names
  */
 async function resolveReference(
   placeholder: {_type: 'reference'; _ref: string},
@@ -289,6 +317,24 @@ async function resolveReference(
   }
 
   const [, matchValue, matchField, documentType] = match
+
+  // SECURITY: Validate field name to prevent GROQ injection attacks
+  // Field names must match pattern: starts with letter/underscore, contains only alphanumeric/underscore
+  if (!isValidFieldName(matchField)) {
+    if (DEBUG_MODE) {
+      console.warn(`[CSV Import] Invalid field name rejected: "${matchField}"`)
+    }
+    return null
+  }
+
+  // Also validate document type for defense in depth
+  if (!isValidFieldName(documentType)) {
+    if (DEBUG_MODE) {
+      console.warn(`[CSV Import] Invalid document type rejected: "${documentType}"`)
+    }
+    return null
+  }
+
   const cacheKey = `${documentType}:${matchField}:${matchValue}`
 
   // Check cache
@@ -297,7 +343,7 @@ async function resolveReference(
     return cachedId ? {_type: 'reference', _ref: cachedId} : null
   }
 
-  // Query for matching document
+  // Query for matching document - field name is now validated safe for interpolation
   const query = `*[_type == $type && ${matchField} == $value][0]._id`
   const documentId = await client.fetch<string | null>(query, {
     type: documentType,
@@ -308,7 +354,11 @@ async function resolveReference(
   cache[cacheKey] = documentId
 
   if (!documentId) {
-    console.warn(`Reference not found: ${documentType} where ${matchField} = "${matchValue}"`)
+    if (DEBUG_MODE) {
+      console.warn(
+        `[CSV Import] Reference not found: ${documentType} where ${matchField} = "${matchValue}"`,
+      )
+    }
     return null
   }
 

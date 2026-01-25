@@ -12,6 +12,50 @@ import {useClient} from 'sanity'
 
 import {getImageFields, type SchemaField} from '../lib/schemaUtils'
 
+/**
+ * Allowed image MIME types for upload
+ * Restricts uploads to common image formats for security
+ */
+const ALLOWED_IMAGE_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/avif',
+  'image/heic',
+  'image/heif',
+])
+
+/**
+ * Maximum file size in bytes (10MB)
+ */
+const MAX_FILE_SIZE = 10 * 1024 * 1024
+
+/**
+ * Validate that a file is an allowed image type
+ */
+function isValidImageFile(file: File): {valid: boolean; error?: string} {
+  // Check MIME type
+  if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+    return {
+      valid: false,
+      error: `Invalid file type: ${file.type || 'unknown'}. Allowed: JPEG, PNG, GIF, WebP, SVG, AVIF, HEIC`,
+    }
+  }
+
+  // Check file size
+  if (file.size > MAX_FILE_SIZE) {
+    const sizeMB = (file.size / (1024 * 1024)).toFixed(1)
+    return {
+      valid: false,
+      error: `File too large: ${sizeMB}MB. Maximum size: 10MB`,
+    }
+  }
+
+  return {valid: true}
+}
+
 export interface UploadedImage {
   filename: string
   assetId: string
@@ -49,14 +93,28 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
 
   const imageFields = getImageFields(schemaFields)
 
-  // Check for duplicates in the file list
+  // Check for duplicates and validate files
   const findDuplicates = useCallback(
-    (files: File[]): {duplicates: DuplicateInfo[]; newFiles: File[]} => {
+    (
+      files: File[],
+    ): {
+      duplicates: DuplicateInfo[]
+      newFiles: File[]
+      invalidFiles: Array<{name: string; error: string}>
+    } => {
       const duplicateInfos: DuplicateInfo[] = []
       const newFiles: File[] = []
+      const invalidFiles: Array<{name: string; error: string}> = []
       const existingFilenames = new Set(uploadedImages.map((img) => img.filename.toLowerCase()))
 
       for (const file of files) {
+        // Validate file type and size first
+        const validation = isValidImageFile(file)
+        if (!validation.valid) {
+          invalidFiles.push({name: file.name, error: validation.error || 'Invalid file'})
+          continue
+        }
+
         const lowerFilename = file.name.toLowerCase()
         const existingIndex = uploadedImages.findIndex(
           (img) => img.filename.toLowerCase() === lowerFilename,
@@ -79,7 +137,7 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
         }
       }
 
-      return {duplicates: duplicateInfos, newFiles}
+      return {duplicates: duplicateInfos, newFiles, invalidFiles}
     },
     [uploadedImages],
   )
@@ -96,8 +154,14 @@ export function ImageUploader({schemaFields, onImagesUploaded}: ImageUploaderPro
 
       const fileArray = Array.from(files)
 
-      // Check for duplicates
-      const {duplicates: foundDuplicates, newFiles} = findDuplicates(fileArray)
+      // Check for duplicates and validate
+      const {duplicates: foundDuplicates, newFiles, invalidFiles} = findDuplicates(fileArray)
+
+      // Show error for invalid files
+      if (invalidFiles.length > 0) {
+        const errorMsg = invalidFiles.map((f) => `${f.name}: ${f.error}`).join('; ')
+        setError(`Some files were rejected: ${errorMsg}`)
+      }
 
       if (foundDuplicates.length > 0) {
         setDuplicates(foundDuplicates)
