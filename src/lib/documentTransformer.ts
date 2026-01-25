@@ -1,5 +1,10 @@
 import {type ReferenceMatchConfig} from '../components/ReferenceConfig'
 import {getCellValue, isEmptyValue, splitArrayValue} from './csvParser'
+import {
+  containsMarkdown,
+  markdownToPortableText,
+  textToPortableText,
+} from './markdownToPortableText'
 import {type SchemaField} from './schemaUtils'
 
 export interface TransformOptions {
@@ -111,6 +116,8 @@ function processField(
       return processGeopointField(rawValue ?? '', field, errors)
     case 'object':
       return processObjectField(row, field, referenceConfig, uploadedImages, errors)
+    case 'block':
+      return processBlockField(rawValue ?? '', field)
     default:
       return rawValue
   }
@@ -196,14 +203,14 @@ function processReferenceField(
   let matchValue: string
   let matchField: string | undefined
 
-  if (arrowIndex !== -1) {
-    matchValue = trimmed.slice(0, arrowIndex).trim()
-    matchField = trimmed.slice(arrowIndex + 1).trim()
-  } else {
+  if (arrowIndex === -1) {
     matchValue = trimmed
     // Find match field from config
     const config = referenceConfig.find((c) => c.fieldPath === field.path)
     matchField = config?.matchField
+  } else {
+    matchValue = trimmed.slice(0, arrowIndex).trim()
+    matchField = trimmed.slice(arrowIndex + 1).trim()
   }
 
   if (!matchField) {
@@ -261,7 +268,11 @@ function processImageField(
 function processUrlField(value: string, field: SchemaField, errors: string[]): string | undefined {
   const trimmed = value.trim()
   try {
-    new URL(trimmed)
+    const url = new URL(trimmed)
+    // Ensure URL is valid by accessing a property
+    if (url.href) {
+      return trimmed
+    }
     return trimmed
   } catch {
     errors.push(`Field "${field.path}" has invalid URL: "${value}"`)
@@ -322,6 +333,22 @@ function processGeopointField(value: string, field: SchemaField, errors: string[
 }
 
 /**
+ * Process block/Portable Text fields
+ * Accepts plain text or Markdown, converts to Portable Text blocks
+ */
+function processBlockField(value: string, _field: SchemaField): unknown[] {
+  const trimmed = value.trim()
+
+  // Check if the content contains Markdown formatting
+  if (containsMarkdown(trimmed)) {
+    return markdownToPortableText(trimmed)
+  }
+
+  // Plain text - convert to simple Portable Text blocks
+  return textToPortableText(trimmed)
+}
+
+/**
  * Process object fields (nested)
  */
 function processObjectField(
@@ -349,6 +376,7 @@ function processObjectField(
       isArray: subField.isArray,
       isReference: subField.isReference,
       isImage: subField.isImage,
+      isRichText: subField.isRichText,
     }
     const value = processField(row, subSchemaField, referenceConfig, uploadedImages, errors)
     if (value !== undefined) {
@@ -395,6 +423,7 @@ function processArrayField(
       isArray: false,
       isReference: field.isReference,
       isImage: field.isImage,
+      isRichText: field.isRichText,
       referenceTo: field.of?.[0]?.type === 'reference' ? field.referenceTo : undefined,
     }
 
